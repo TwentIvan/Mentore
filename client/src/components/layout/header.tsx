@@ -22,7 +22,6 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useOrganization } from "@/contexts/organization-context";
 import { useTranslation, Language } from "@/lib/i18n";
-import logoPath from "@assets/ChatGPT Image 8 ott 2025, 12_51_07_1759920990896.png";
 
 interface HeaderProps {
   title: string;
@@ -114,15 +113,6 @@ export default function Header({ title, subtitle, onNewClick }: HeaderProps) {
     <header className="bg-card border-b border-border px-6 py-3 sticky top-0 z-10">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-6">
-          {/* Logo Mentore */}
-          <Link href="/">
-            <img 
-              src={logoPath} 
-              alt="Mentore" 
-              className="h-12 cursor-pointer transition-opacity hover:opacity-80"
-            />
-          </Link>
-          
           {/* Area Title with Icon - più piccolo */}
           <div className="flex items-center space-x-2">
             <AreaIcon className="text-muted-foreground flex-shrink-0" style={{ width: '1.25rem', height: '1.25rem' }} />
