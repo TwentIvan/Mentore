@@ -3,12 +3,10 @@ import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Code, BarChart3, FolderOpen, CheckSquare, Handshake, Building, Calendar, Clock, User, LogOut, FolderTree, Mail, DollarSign, Users, FileText, Server, Key, Shield, Wifi, Radar, Plus, Minus, Settings, Sparkles, Contact, Tag } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { FolderOpen, CheckSquare, Handshake, Calendar, User, LogOut, Mail, Sparkles, Contact, Tag } from "lucide-react";
 import logoSymbol from "@assets/ChatGPT Image 8 ott 2025, 11_45_12_1759921521136.png";
-import ImageContainer from "@/components/ui/image-container";
 
-// Main navigation (Organizations già rimosso dalla lista principale)  
+// Main navigation
 const getDefaultNavigation = (t: any) => [
   { id: "1", name: t("nav.projects"), href: "/projects", icon: FolderOpen, testId: "nav-projects" },
   { id: "2", name: t("nav.tasks"), href: "/tasks", icon: CheckSquare, testId: "nav-tasks" },
@@ -16,21 +14,8 @@ const getDefaultNavigation = (t: any) => [
   { id: "3b", name: t("nav.contacts"), href: "/contacts", icon: Contact, testId: "nav-contacts" },
   { id: "4", name: t("nav.messages"), href: "/messages", icon: Mail, testId: "nav-messages" },
   { id: "5", name: t("nav.proposals"), href: "/proposals", icon: Sparkles, testId: "nav-proposals" },
-  { id: "6", name: t("nav.salesOrders"), href: "/sales-orders", icon: FileText, testId: "nav-sales-orders" },
-  { id: "7", name: t("nav.rateAgreements"), href: "/rate-agreements", icon: DollarSign, testId: "nav-rate-agreements" },
-  { id: "8", name: t("nav.humanResources"), href: "/human-resources", icon: Users, testId: "nav-human-resources" },
-];
-
-const getDefaultTimeManagementItems = (t: any) => [
   { id: "t0", name: t("nav.timePlanner"), href: "/time-planner", icon: Calendar, testId: "nav-time-planner" },
   { id: "t1", name: t("nav.interestAreas"), href: "/interest-areas", icon: Tag, testId: "nav-interest-areas" },
-  { id: "t2", name: t("nav.timeEntries"), href: "/timesheet", icon: Clock, testId: "nav-timesheet" },
-  { id: "t3", name: t("nav.timesheets"), href: "/timesheets", icon: Clock, testId: "nav-timesheets" },
-];
-
-// Parent sections
-const getDefaultParentItems = (t: any) => [
-  { id: "p2", name: t("nav.timeManagement"), icon: Clock, testId: "nav-time-management", type: "timeManagement" },
 ];
 
 // Simple Navigation Item Component
@@ -60,103 +45,11 @@ function NavItem({ item, isActive }: { item: any; isActive: boolean }) {
   );
 }
 
-// Simple Parent Item Component (with expand/collapse button)
-function ParentItem({ item, children, isOpen, onToggle, hasActiveChild = false }: { item: any; children: React.ReactNode; isOpen: boolean; onToggle: () => void; hasActiveChild?: boolean }) {
-  const Icon = item.icon;
-
-  return (
-    <div className="space-y-1">
-      <div 
-        className="w-full p-2 rounded-md group flex items-center transition-colors sidebar-nav-item text-muted-foreground hover:bg-muted/20"
-        data-testid={item.testId}
-      >
-        <div 
-          className="flex items-center px-3 py-2 rounded-md nav-box transition-colors flex-1 pointer-events-none" 
-          style={{ 
-            backgroundColor: hasActiveChild ? 'hsl(160, 15%, 55%, 0.25)' : 'hsl(160, 15%, 55%, 0.1)', 
-            border: '1px solid hsl(160, 15%, 55%, 0.2)', 
-            minWidth: '240px', 
-            maxWidth: '240px' 
-          }}
-        >
-          <Icon className="h-6 w-6 flex-shrink-0 mr-3 text-muted-foreground" />
-          <span className="text-base font-medium flex-1 text-muted-foreground">{item.name}</span>
-          <button 
-            onClick={onToggle}
-            className="ml-2 w-6 h-6 rounded-md border border-current hover:bg-white/20 transition-colors flex items-center justify-center pointer-events-auto"
-            style={{ borderColor: 'hsl(160, 15%, 55%)', color: 'hsl(160, 15%, 55%)' }}
-          >
-            {isOpen ? (
-              <Minus className="h-3 w-3" style={{ color: 'hsl(160, 15%, 55%)' }} />
-            ) : (
-              <Plus className="h-3 w-3" style={{ color: 'hsl(160, 15%, 55%)' }} />
-            )}
-          </button>
-        </div>
-      </div>
-      {isOpen && children}
-    </div>
-  );
-}
-
-// Simple Sub-Navigation Item Component (smaller)
-function SubNavItem({ item, isActive, onChildClick }: { item: any; isActive: boolean; onChildClick: () => void }) {
-  const [, setLocation] = useLocation();
-  const Icon = item.icon;
-
-  return (
-    <div className="ml-4">
-      <div className="w-full p-2 rounded-md group flex items-center transition-colors sidebar-nav-item text-muted-foreground hover:bg-muted/20">
-        <button 
-          className="flex items-center px-3 py-1 rounded-md nav-box transition-colors flex-1 cursor-pointer border-0 bg-transparent" 
-          style={{ 
-            backgroundColor: isActive ? 'hsl(160, 15%, 55%, 0.25)' : 'hsl(160, 15%, 55%, 0.08)', 
-            border: '1px solid hsl(160, 15%, 55%, 0.15)', 
-            minWidth: '220px', 
-            maxWidth: '220px' 
-          }}
-          onClick={() => {
-            console.log('Child clicked:', item.name);
-            setLocation(item.href);
-          }}
-          data-testid={item.testId}
-          type="button"
-        >
-          <Icon className="h-5 w-5 flex-shrink-0 mr-2 text-muted-foreground" />
-          <span className="text-sm font-medium flex-1 text-muted-foreground text-left">{item.name}</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function Sidebar() {
   const [location] = useLocation();
   const { user, logoutMutation } = useAuth();
   const { t } = useTranslation();
   const navigation = getDefaultNavigation(t);
-  const timeManagementItems = getDefaultTimeManagementItems(t);
-  const parentItems = getDefaultParentItems(t);
-  const [isTimeManagementOpen, setIsTimeManagementOpen] = useState(false);
-  
-  // Auto-open parent menus when child is active
-  const hasActiveTimeChild = timeManagementItems.some((item: any) => location === item.href);
-  
-  // Keep menus open if they have active children
-  const shouldTimeManagementBeOpen = isTimeManagementOpen || hasActiveTimeChild;
-  // Semplice funzione di toggle - chiude solo se non ci sono figli attivi
-  const handleToggle = (type: string) => {
-    console.log('Executing toggle for:', type);
-    
-    if (type === 'timeManagement') {
-      // Non chiudere se c'è un figlio attivo
-      if (hasActiveTimeChild && isTimeManagementOpen) {
-        console.log('Preventing timeManagement close - has active child');
-        return;
-      }
-      setIsTimeManagementOpen(!isTimeManagementOpen);
-    }
-  };
 
   return (
     <aside className="w-80 bg-card border-r border-border flex flex-col">
@@ -182,42 +75,6 @@ export default function Sidebar() {
             <NavItem key={item.id} item={item} isActive={isActive} />
           );
         })}
-        
-        {/* Parent Sections (Time Management) */}
-        <div>
-          {parentItems.map((item: any) => {
-            const isOpen = item.type === 'timeManagement' ? shouldTimeManagementBeOpen : false;
-            const hasActiveChild = hasActiveTimeChild;
-            
-            return (
-              <div key={item.id}>
-                <ParentItem
-                  item={item}
-                  isOpen={isOpen}
-                  hasActiveChild={hasActiveChild}
-                  onToggle={() => handleToggle(item.type)}
-                  children={
-                    isOpen && (
-                      <div className="space-y-1">
-                        {timeManagementItems.map((subItem: any) => {
-                          const isActive = location === subItem.href;
-                          return (
-                            <SubNavItem 
-                              key={subItem.id} 
-                              item={subItem} 
-                              isActive={isActive} 
-                              onChildClick={() => {}}
-                            />
-                          );
-                        })}
-                      </div>
-                    )
-                  }
-                />
-              </div>
-            );
-          })}
-        </div>
       </nav>
 
       {/* User Profile */}
