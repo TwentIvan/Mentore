@@ -247,21 +247,19 @@ export interface IStorage {
   deleteHumanResource(id: string, userId: string): Promise<boolean>;
   getHumanResourceByLinkedUser(userId: string, linkedUserId: string): Promise<HumanResource | undefined>;
 
-  // SAP Systems
-  getSapSystems(userId: string): Promise<SapSystem[]>;
-  getSapSystemsByPartner(partnerId: string, userId: string): Promise<SapSystem[]>;
-  getSapSystem(id: string, userId: string): Promise<SapSystem | undefined>;
-  createSapSystem(system: InsertSapSystem): Promise<SapSystem>;
-  updateSapSystem(id: string, system: Partial<InsertSapSystem>, userId: string): Promise<SapSystem | undefined>;
-  deleteSapSystem(id: string, userId: string): Promise<boolean>;
+  // Interest Areas
+  getInterestAreas(userId: string, organizationId: string): Promise<InterestArea[]>;
+  getInterestArea(id: string, userId: string): Promise<InterestArea | undefined>;
+  createInterestArea(area: InsertInterestArea): Promise<InterestArea>;
+  updateInterestArea(id: string, area: Partial<InsertInterestArea>, userId: string): Promise<InterestArea | undefined>;
+  deleteInterestArea(id: string, userId: string): Promise<boolean>;
 
-  // SAP System Credentials
-  getSapSystemCredentials(sapSystemId: string, userId: string): Promise<SapSystemCredentials[]>;
-  getSapSystemCredential(id: string, userId: string): Promise<SapSystemCredentials | undefined>;
-  createSapSystemCredential(credential: InsertSapSystemCredentials): Promise<SapSystemCredentials>;
-  updateSapSystemCredential(id: string, credential: Partial<InsertSapSystemCredentials>, userId: string): Promise<SapSystemCredentials | undefined>;
-  deleteSapSystemCredential(id: string, userId: string): Promise<boolean>;
-  getActiveSapSystemCredentials(sapSystemId: string, userId: string): Promise<SapSystemCredentials[]>;
+  // Time Allocation Templates
+  getTimeAllocationTemplates(userId: string, organizationId: string): Promise<TimeAllocationTemplate[]>;
+  getTimeAllocationTemplate(id: string, userId: string): Promise<TimeAllocationTemplate | undefined>;
+  createTimeAllocationTemplate(template: InsertTimeAllocationTemplate): Promise<TimeAllocationTemplate>;
+  updateTimeAllocationTemplate(id: string, template: Partial<InsertTimeAllocationTemplate>, userId: string): Promise<TimeAllocationTemplate | undefined>;
+  deleteTimeAllocationTemplate(id: string, userId: string): Promise<boolean>;
 
   // VPN Connections
   getVpnConnections(userId: string): Promise<VpnConnection[]>;
@@ -287,25 +285,6 @@ export interface IStorage {
   updateSystemCredential(id: string, credential: Partial<InsertSystemCredentials>, userId: string): Promise<SystemCredentials | undefined>;
   deleteSystemCredential(id: string, userId: string): Promise<boolean>;
 
-  // Transport Requests
-  getTransportRequests(userId: string): Promise<TransportRequest[]>;
-  getTransportRequestsBySapSystem(sapSystemId: string, userId: string): Promise<TransportRequest[]>;
-  getTransportRequestsByProject(projectId: string, userId: string): Promise<TransportRequest[]>;
-  getTransportRequest(id: string, userId: string): Promise<TransportRequest | undefined>;
-  createTransportRequest(request: InsertTransportRequest): Promise<TransportRequest>;
-  updateTransportRequest(id: string, request: Partial<InsertTransportRequest>, userId: string): Promise<TransportRequest | undefined>;
-  deleteTransportRequest(id: string, userId: string): Promise<boolean>;
-  getTransportRequestByNumber(requestNumber: string, userId: string): Promise<TransportRequest | undefined>;
-
-  // Intervention Documents
-  getInterventionDocuments(userId: string): Promise<InterventionDocument[]>;
-  getInterventionDocumentsByProject(projectId: string, userId: string): Promise<InterventionDocument[]>;
-  getInterventionDocumentsByTransportRequest(transportRequestId: string, userId: string): Promise<InterventionDocument[]>;
-  getInterventionDocument(id: string, userId: string): Promise<InterventionDocument | undefined>;
-  createInterventionDocument(document: InsertInterventionDocument): Promise<InterventionDocument>;
-  updateInterventionDocument(id: string, document: Partial<InsertInterventionDocument>, userId: string): Promise<InterventionDocument | undefined>;
-  deleteInterventionDocument(id: string, userId: string): Promise<boolean>;
-  getInterventionDocumentsByStatus(status: string, userId: string): Promise<InterventionDocument[]>;
 
   // VPN Software (Master Data)
   getVpnSoftware(): Promise<VpnSoftware[]>;
@@ -1012,91 +991,19 @@ export class DatabaseStorage implements IStorage {
   async getTaskConnectionInfo(taskId: string, userId: string): Promise<any> {
     const [result] = await db
       .select({
-        // Task info
         taskId: tasks.id,
         taskTitle: tasks.title,
         taskDescription: tasks.description,
         taskStatus: tasks.status,
-        
-        // SAP System info
-        sapSystemId: sapSystems.id,
-        sapSystemName: sapSystems.name,
-        sapSystemDescription: sapSystems.description,
-        sapSystemType: sapSystems.systemType,
-        sapServerHost: sapSystems.serverHost,
-        sapSystemNumber: sapSystems.systemNumber,
-        sapApplicationServerPort: sapSystems.applicationServerPort,
-        sapMessageServerPort: sapSystems.messageServerPort,
-        sapReleaseVersion: sapSystems.sapReleaseVersion,
-        sapKernelVersion: sapSystems.kernelVersion,
-        sapLandscape: sapSystems.landscape,
-        
-        // VPN Connection info
-        vpnConnectionId: vpnConnections.id,
-        vpnConnectionName: vpnConnections.name,
-        vpnConnectionType: vpnConnections.connectionType,
-        vpnServerHost: vpnConnections.serverHost,
-        vpnServerPort: vpnConnections.serverPort,
-        vpnProtocol: vpnConnections.protocol,
-        vpnConfigFileContent: vpnConnections.configFileContent,
-        vpnAllowedIpRanges: vpnConnections.allowedIpRanges,
-        vpnDnsServers: vpnConnections.dnsServers,
-        
-        // VPN Software info
-        vpnSoftwareId: vpnSoftware.id,
-        vpnSoftwareName: vpnSoftware.name,
-        vpnSoftwareVendor: vpnSoftware.vendor,
-        vpnSoftwareVersion: vpnSoftware.version,
-        vpnSoftwareIconUrl: vpnSoftware.iconUrl,
-        vpnSoftwareDownloadUrl: vpnSoftware.downloadUrl,
-        vpnSoftwareDocumentationUrl: vpnSoftware.documentationUrl,
-        vpnSupportedPlatforms: vpnSoftware.supportedPlatforms,
-        
-        // Partner info
-        partnerId: partners.id,
-        partnerName: partners.name,
-        partnerCompany: partners.company,
-        partnerEmail: partners.email,
+        projectId: tasks.projectId,
       })
       .from(tasks)
-      .leftJoin(sapSystems, eq(tasks.sapSystemId, sapSystems.id))
-      .leftJoin(vpnConnections, eq(sapSystems.vpnConnectionId, vpnConnections.id))
-      .leftJoin(vpnSoftware, eq(tasks.id, tasks.id)) // Remove invalid join - vpnConnections doesn't have vpnSoftwareId
-      .leftJoin(partners, eq(sapSystems.partnerId, partners.id))
       .where(and(
         eq(tasks.id, taskId), 
-        eq(tasks.userId, userId),
-        isNotNull(tasks.sapSystemId) // Solo task con sistema SAP collegato
+        eq(tasks.userId, userId)
       ));
 
-    if (!result) {
-      return null;
-    }
-
-    // Get SAP credentials for this system
-    const credentials = await db
-      .select({
-        credentialId: sapSystemCredentials.id,
-        username: sapSystemCredentials.username,
-        password: sapSystemCredentials.password,
-        description: sapSystemCredentials.description,
-        userType: sapSystemCredentials.userType,
-        authorizationProfile: sapSystemCredentials.authorizationProfile,
-        validFrom: sapSystemCredentials.validFrom,
-        validTo: sapSystemCredentials.validTo,
-        isActive: sapSystemCredentials.isActive,
-      })
-      .from(sapSystemCredentials)
-      .where(and(
-        eq(sapSystemCredentials.sapSystemId, result.sapSystemId!),
-        eq(sapSystemCredentials.userId, userId),
-        eq(sapSystemCredentials.isActive, true)
-      ));
-
-    return {
-      ...result,
-      sapCredentials: credentials
-    };
+    return result || null;
   }
 
   async createTask(task: InsertTask & { organizationId: string }, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<Task> {
@@ -2534,130 +2441,102 @@ export class DatabaseStorage implements IStorage {
     return resource || undefined;
   }
 
-  // SAP Systems
-  async getSapSystems(userId: string): Promise<SapSystem[]> {
-    return await db.select({
-      id: sapSystems.id,
-      userId: sapSystems.userId,
-      organizationId: sapSystems.organizationId,
-      partnerId: sapSystems.partnerId,
-      projectId: sapSystems.projectId,
-      name: sapSystems.name,
-      description: sapSystems.description,
-      systemType: sapSystems.systemType,
-      status: sapSystems.status,
-      serverHost: sapSystems.serverHost,
-      systemNumber: sapSystems.systemNumber,
-      applicationServerPort: sapSystems.applicationServerPort,
-      messageServerPort: sapSystems.messageServerPort,
-      landscape: sapSystems.landscape,
-      sapReleaseVersion: sapSystems.sapReleaseVersion,
-      kernelVersion: sapSystems.kernelVersion,
-      notes: sapSystems.notes,
-      isActive: sapSystems.isActive,
-      vpnConnectionId: sapSystems.vpnConnectionId,
-      createdAt: sapSystems.createdAt,
-      updatedAt: sapSystems.updatedAt,
-      partner: {
-        id: partners.id,
-        name: partners.name,
-        company: partners.company,
-        type: partners.type,
-      }
-    })
-    .from(sapSystems)
-    .leftJoin(partners, eq(sapSystems.partnerId, partners.id))
-    .where(eq(sapSystems.userId, userId))
-    .orderBy(desc(sapSystems.createdAt));
-  }
-
-  async getSapSystemsByPartner(partnerId: string, userId: string): Promise<SapSystem[]> {
-    return await db.select().from(sapSystems)
+  // Interest Areas
+  async getInterestAreas(userId: string, organizationId: string): Promise<InterestArea[]> {
+    return await db.select().from(interestAreas)
       .where(and(
-        eq(sapSystems.partnerId, partnerId),
-        eq(sapSystems.userId, userId)
+        eq(interestAreas.userId, userId),
+        eq(interestAreas.organizationId, organizationId)
       ))
-      .orderBy(desc(sapSystems.createdAt));
+      .orderBy(desc(interestAreas.createdAt));
   }
 
-  async getSapSystem(id: string, userId: string): Promise<SapSystem | undefined> {
-    const [system] = await db.select().from(sapSystems)
-      .where(and(eq(sapSystems.id, id), eq(sapSystems.userId, userId)));
-    return system || undefined;
+  async getInterestArea(id: string, userId: string): Promise<InterestArea | undefined> {
+    const [area] = await db.select().from(interestAreas)
+      .where(and(
+        eq(interestAreas.id, id),
+        eq(interestAreas.userId, userId)
+      ));
+    return area || undefined;
   }
 
-  async createSapSystem(system: InsertSapSystem): Promise<SapSystem> {
-    const [newSystem] = await db
-      .insert(sapSystems)
-      .values(system)
+  async createInterestArea(area: InsertInterestArea): Promise<InterestArea> {
+    const [newArea] = await db
+      .insert(interestAreas)
+      .values(area)
       .returning();
-    return newSystem;
+    return newArea;
   }
 
-  async updateSapSystem(id: string, system: Partial<InsertSapSystem>, userId: string): Promise<SapSystem | undefined> {
-    const [updatedSystem] = await db
-      .update(sapSystems)
-      .set({ ...system, updatedAt: new Date() })
-      .where(and(eq(sapSystems.id, id), eq(sapSystems.userId, userId)))
+  async updateInterestArea(id: string, area: Partial<InsertInterestArea>, userId: string): Promise<InterestArea | undefined> {
+    const [updatedArea] = await db
+      .update(interestAreas)
+      .set({ ...area, updatedAt: new Date() })
+      .where(and(
+        eq(interestAreas.id, id),
+        eq(interestAreas.userId, userId)
+      ))
       .returning();
-    return updatedSystem || undefined;
+    return updatedArea || undefined;
   }
 
-  async deleteSapSystem(id: string, userId: string): Promise<boolean> {
+  async deleteInterestArea(id: string, userId: string): Promise<boolean> {
     const result = await db
-      .delete(sapSystems)
-      .where(and(eq(sapSystems.id, id), eq(sapSystems.userId, userId)));
+      .delete(interestAreas)
+      .where(and(
+        eq(interestAreas.id, id),
+        eq(interestAreas.userId, userId)
+      ));
     return (result.rowCount || 0) > 0;
   }
 
-  // SAP System Credentials
-  async getSapSystemCredentials(sapSystemId: string, userId: string): Promise<SapSystemCredentials[]> {
-    return await db.select().from(sapSystemCredentials)
+  // Time Allocation Templates
+  async getTimeAllocationTemplates(userId: string, organizationId: string): Promise<TimeAllocationTemplate[]> {
+    return await db.select().from(timeAllocationTemplates)
       .where(and(
-        eq(sapSystemCredentials.sapSystemId, sapSystemId),
-        eq(sapSystemCredentials.userId, userId)
+        eq(timeAllocationTemplates.userId, userId),
+        eq(timeAllocationTemplates.organizationId, organizationId)
       ))
-      .orderBy(desc(sapSystemCredentials.createdAt));
+      .orderBy(desc(timeAllocationTemplates.createdAt));
   }
 
-  async getSapSystemCredential(id: string, userId: string): Promise<SapSystemCredentials | undefined> {
-    const [credential] = await db.select().from(sapSystemCredentials)
-      .where(and(eq(sapSystemCredentials.id, id), eq(sapSystemCredentials.userId, userId)));
-    return credential || undefined;
+  async getTimeAllocationTemplate(id: string, userId: string): Promise<TimeAllocationTemplate | undefined> {
+    const [template] = await db.select().from(timeAllocationTemplates)
+      .where(and(
+        eq(timeAllocationTemplates.id, id),
+        eq(timeAllocationTemplates.userId, userId)
+      ));
+    return template || undefined;
   }
 
-  async createSapSystemCredential(credential: InsertSapSystemCredentials): Promise<SapSystemCredentials> {
-    const [newCredential] = await db
-      .insert(sapSystemCredentials)
-      .values(credential)
+  async createTimeAllocationTemplate(template: InsertTimeAllocationTemplate): Promise<TimeAllocationTemplate> {
+    const [newTemplate] = await db
+      .insert(timeAllocationTemplates)
+      .values(template)
       .returning();
-    return newCredential;
+    return newTemplate;
   }
 
-  async updateSapSystemCredential(id: string, credential: Partial<InsertSapSystemCredentials>, userId: string): Promise<SapSystemCredentials | undefined> {
-    const [updatedCredential] = await db
-      .update(sapSystemCredentials)
-      .set({ ...credential, updatedAt: new Date() })
-      .where(and(eq(sapSystemCredentials.id, id), eq(sapSystemCredentials.userId, userId)))
+  async updateTimeAllocationTemplate(id: string, template: Partial<InsertTimeAllocationTemplate>, userId: string): Promise<TimeAllocationTemplate | undefined> {
+    const [updatedTemplate] = await db
+      .update(timeAllocationTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(and(
+        eq(timeAllocationTemplates.id, id),
+        eq(timeAllocationTemplates.userId, userId)
+      ))
       .returning();
-    return updatedCredential || undefined;
+    return updatedTemplate || undefined;
   }
 
-  async deleteSapSystemCredential(id: string, userId: string): Promise<boolean> {
+  async deleteTimeAllocationTemplate(id: string, userId: string): Promise<boolean> {
     const result = await db
-      .delete(sapSystemCredentials)
-      .where(and(eq(sapSystemCredentials.id, id), eq(sapSystemCredentials.userId, userId)));
-    return (result.rowCount || 0) > 0;
-  }
-
-  async getActiveSapSystemCredentials(sapSystemId: string, userId: string): Promise<SapSystemCredentials[]> {
-    return await db.select().from(sapSystemCredentials)
+      .delete(timeAllocationTemplates)
       .where(and(
-        eq(sapSystemCredentials.sapSystemId, sapSystemId),
-        eq(sapSystemCredentials.userId, userId),
-        eq(sapSystemCredentials.isActive, true)
-      ))
-      .orderBy(desc(sapSystemCredentials.createdAt));
+        eq(timeAllocationTemplates.id, id),
+        eq(timeAllocationTemplates.userId, userId)
+      ));
+    return (result.rowCount || 0) > 0;
   }
 
   // VPN Connections
@@ -2754,134 +2633,6 @@ export class DatabaseStorage implements IStorage {
         eq(vpnCredentials.isActive, true)
       ))
       .orderBy(desc(vpnCredentials.createdAt));
-  }
-
-  // Transport Requests
-  async getTransportRequests(userId: string): Promise<TransportRequest[]> {
-    return await db.select().from(transportRequests)
-      .where(eq(transportRequests.userId, userId))
-      .orderBy(desc(transportRequests.createdAt));
-  }
-
-  async getTransportRequestsBySapSystem(sapSystemId: string, userId: string): Promise<TransportRequest[]> {
-    return await db.select().from(transportRequests)
-      .where(and(
-        eq(transportRequests.sapSystemId, sapSystemId),
-        eq(transportRequests.userId, userId)
-      ))
-      .orderBy(desc(transportRequests.createdAt));
-  }
-
-  async getTransportRequestsByProject(projectId: string, userId: string): Promise<TransportRequest[]> {
-    return await db.select().from(transportRequests)
-      .where(and(
-        eq(transportRequests.projectId, projectId),
-        eq(transportRequests.userId, userId)
-      ))
-      .orderBy(desc(transportRequests.createdAt));
-  }
-
-  async getTransportRequest(id: string, userId: string): Promise<TransportRequest | undefined> {
-    const [request] = await db.select().from(transportRequests)
-      .where(and(eq(transportRequests.id, id), eq(transportRequests.userId, userId)));
-    return request || undefined;
-  }
-
-  async createTransportRequest(request: InsertTransportRequest): Promise<TransportRequest> {
-    const [newRequest] = await db
-      .insert(transportRequests)
-      .values(request)
-      .returning();
-    return newRequest;
-  }
-
-  async updateTransportRequest(id: string, request: Partial<InsertTransportRequest>, userId: string): Promise<TransportRequest | undefined> {
-    const [updatedRequest] = await db
-      .update(transportRequests)
-      .set({ ...request, updatedAt: new Date() })
-      .where(and(eq(transportRequests.id, id), eq(transportRequests.userId, userId)))
-      .returning();
-    return updatedRequest || undefined;
-  }
-
-  async deleteTransportRequest(id: string, userId: string): Promise<boolean> {
-    const result = await db
-      .delete(transportRequests)
-      .where(and(eq(transportRequests.id, id), eq(transportRequests.userId, userId)));
-    return (result.rowCount || 0) > 0;
-  }
-
-  async getTransportRequestByNumber(requestNumber: string, userId: string): Promise<TransportRequest | undefined> {
-    const [request] = await db.select().from(transportRequests)
-      .where(and(
-        eq(transportRequests.requestNumber, requestNumber),
-        eq(transportRequests.userId, userId)
-      ));
-    return request || undefined;
-  }
-
-  // Intervention Documents
-  async getInterventionDocuments(userId: string): Promise<InterventionDocument[]> {
-    return await db.select().from(interventionDocuments)
-      .where(eq(interventionDocuments.userId, userId))
-      .orderBy(desc(interventionDocuments.createdAt));
-  }
-
-  async getInterventionDocumentsByProject(projectId: string, userId: string): Promise<InterventionDocument[]> {
-    return await db.select().from(interventionDocuments)
-      .where(and(
-        eq(interventionDocuments.projectId, projectId),
-        eq(interventionDocuments.userId, userId)
-      ))
-      .orderBy(desc(interventionDocuments.createdAt));
-  }
-
-  async getInterventionDocumentsByTransportRequest(transportRequestId: string, userId: string): Promise<InterventionDocument[]> {
-    return await db.select().from(interventionDocuments)
-      .where(and(
-        eq(interventionDocuments.transportRequestId, transportRequestId),
-        eq(interventionDocuments.userId, userId)
-      ))
-      .orderBy(desc(interventionDocuments.createdAt));
-  }
-
-  async getInterventionDocument(id: string, userId: string): Promise<InterventionDocument | undefined> {
-    const [document] = await db.select().from(interventionDocuments)
-      .where(and(eq(interventionDocuments.id, id), eq(interventionDocuments.userId, userId)));
-    return document || undefined;
-  }
-
-  async createInterventionDocument(document: InsertInterventionDocument): Promise<InterventionDocument> {
-    const [newDocument] = await db
-      .insert(interventionDocuments)
-      .values(document)
-      .returning();
-    return newDocument;
-  }
-
-  async updateInterventionDocument(id: string, document: Partial<InsertInterventionDocument>, userId: string): Promise<InterventionDocument | undefined> {
-    const [updatedDocument] = await db
-      .update(interventionDocuments)
-      .set({ ...document, updatedAt: new Date() })
-      .where(and(eq(interventionDocuments.id, id), eq(interventionDocuments.userId, userId)))
-      .returning();
-    return updatedDocument || undefined;
-  }
-
-  async deleteInterventionDocument(id: string, userId: string): Promise<boolean> {
-    const result = await db
-      .delete(interventionDocuments)
-      .where(and(eq(interventionDocuments.id, id), eq(interventionDocuments.userId, userId)));
-    return (result.rowCount || 0) > 0;
-  }
-
-  async getInterventionDocumentsByStatus(status: string, userId: string): Promise<InterventionDocument[]> {
-    return await db.select().from(interventionDocuments)
-      .where(and(
-        eq(interventionDocuments.status, status as any),
-        eq(interventionDocuments.userId, userId)
-      ))
-      .orderBy(desc(interventionDocuments.createdAt));
   }
 
   // System Credentials (unified SAP + VPN)

@@ -389,15 +389,6 @@ export default function TasksPage() {
   };
 
   const handleLaunchConnections = async (task: Task) => {
-    if (!task.sapSystemId) {
-      toast({ 
-        title: "Sistema SAP non configurato", 
-        description: "Questo task non ha un sistema SAP collegato",
-        variant: "destructive" 
-      });
-      return;
-    }
-
     try {
       // Execute VPN automation
       const response = await fetch(`/api/tasks/${task.id}/execute-connection`, {
@@ -419,9 +410,8 @@ Sul tuo MacBook reale, questo script:
 1. 🔍 Rileverà automaticamente le tue 5 connessioni FortiClient 
 2. 📝 Genererà AppleScript personalizzato per la connessione VPN
 3. 🚀 Avvierà FortiClient e si connetterà automaticamente
-4. 💻 Aprirà SAP GUI con le credenziali corrette
 
-Questo è l'automazione completa VPN + SAP in un solo click!`,
+Questo è l'automazione completa VPN in un solo click!`,
           executionCommand: `osascript -e 'tell application "FortiClient" to activate; delay 2; tell application "System Events" to tell process "FortiClient" to click button "Connect"'`
         };
       } else {
@@ -651,18 +641,6 @@ Tipo Connessione: ${automationResult.connectionType || 'Unknown'}`;
       searchable: false,
       render: (task: Task) => (
         <div className="flex items-center space-x-2">
-          {task.sapSystemId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleLaunchConnections(task)}
-              data-testid={`button-launch-connections-${task.id}`}
-              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-            >
-              <ExternalLink className="h-4 w-4 mr-1" />
-              Avvia
-            </Button>
-          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" data-testid={`button-task-menu-${task.id}`}>
@@ -724,13 +702,13 @@ Tipo Connessione: ${automationResult.connectionType || 'Unknown'}`;
             />
           </div>
 
-          {isLoading && (!tasks || tasks.length === 0) ? (
+          {isLoading && (tasks === undefined || tasks.length === 0) ? (
             <div className="space-y-4">
               {[...Array(6)].map((_, i) => (
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : tasks?.length === 0 ? (
+          ) : tasks !== undefined && tasks.length === 0 ? (
             <div className="text-center py-12">
               <CheckSquare className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">No tasks yet</h3>

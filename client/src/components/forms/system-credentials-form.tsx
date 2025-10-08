@@ -49,7 +49,7 @@ export function SystemCredentialsForm({ credential, onSuccess, onCancel }: Syste
       userId: credential?.userId || "811b4ad2-6882-4a7d-afcd-57dfb7f0af51", // Current user ID
       username: credential?.username || "",
       password: credential?.password || "",
-      systemType: credential?.systemType || "sap",
+      systemType: credential?.systemType || "vpn",
       systemId: credential?.systemId || undefined,
       systemName: credential?.systemName || "",
       expirationDate: credential?.expirationDate ? new Date(credential.expirationDate) : undefined,
@@ -61,36 +61,6 @@ export function SystemCredentialsForm({ credential, onSuccess, onCancel }: Syste
 
   const selectedSystemType = form.watch("systemType");
 
-  // Real SAP systems with actual UUIDs from database (temporary until API 401 is fixed)
-  const sapSystems = selectedSystemType === "sap" ? [
-    // Real systems with proper UUIDs from database
-    { id: "8854f105-1e44-46ab-bc1b-c74f0d60e59e", name: "Alperia.PRD", serverHost: "10.87.158.3" },
-    { id: "1e841e98-6549-47d5-ad5d-b7033bea9da4", name: "Alperia.SBX", serverHost: "10.87.158.2" },
-    { id: "77ea9cb5-f285-4728-83fc-2418795d9737", name: "Alperia.QUA", serverHost: "10.87.158.2" },
-    { id: "445368c7-d062-4f3d-8661-ccada9b7235e", name: "Alperia.D4U", serverHost: "10.230.0.89" },
-    { id: "7f31ef3e-56b7-42ea-aa37-3a686c129512", name: "Alperia.NWC", serverHost: "192.168.202.148" },
-    { id: "acc821c3-b57c-4abc-83a3-db8b97781403", name: "Alperia.T4U", serverHost: "vhalpt4ucs.fra3.hec.corp.local" },
-    { id: "c8d2d1a7-5461-429a-a380-d6a82044b2a4", name: "Hera.PR1", serverHost: "10.11.10.26" },
-    { id: "72c41ce7-4d80-403e-ab9a-8adb3a4577b9", name: "Hera.PRQ", serverHost: "isuprq.service.intra" },
-    { id: "56307313-32bf-452b-a240-3691089e5eae", name: "Hera.PRP", serverHost: "10.11.11.47" },
-    { id: "83d9f112-8730-43bf-a4b3-426b9b37a229", name: "Hera.PQ4", serverHost: "isupq4.service.intra" },
-    { id: "349cdfec-9f8e-464c-a434-61824221f8b8", name: "Hera.SV6", serverHost: "isuse6.service.intra" }, // ECCO SV6!
-    { id: "2a17df43-bb64-47a6-98c5-02b768f81db9", name: "Edison.NUB", serverHost: "ewfdws4hal01.corp.awsedison.it" },
-    { id: "78032808-27b9-4069-800e-77c1c3ec2937", name: "Edison.NUT", serverHost: "ewfrws4hal01.corp.awsedison.it" },
-    { id: "ad8fac16-7d8f-4e47-9219-d08bd75659c6", name: "Edison.EUC", serverHost: "10.202.242.162" },
-    { id: "7481bfce-ebb6-430b-9963-b56a3d7c7cfc", name: "Enel.REP", serverHost: "10.153.99.23" },
-    { id: "ce0f902f-5fef-4586-b389-499c21b47130", name: "Enel.RED", serverHost: "10.154.133.39" },
-    { id: "0f368277-a269-47cd-8088-6d6bb5522dd2", name: "Enel.REM", serverHost: "10.154.133.116" },
-    { id: "5ab48393-911c-40d7-948e-629bf0c0d730", name: "Enel.REQ", serverHost: "12.1.1.1" },
-    { id: "1b475623-b28f-4c80-84d0-32a042fd2a90", name: "CSI.PRD", serverHost: "10.102.229.46" },
-    { id: "714f8fe3-affe-4ec6-81d1-14804a452b36", name: "CSI.DEV", serverHost: "10.102.229.63" },
-    { id: "0eb72859-3283-4414-bf19-37037139ed1d", name: "CSI.SND", serverHost: "10.102.229.69" },
-    { id: "7d3d8bb3-8da6-40ba-b1d0-415a706bc6f9", name: "Iren.SHS", serverHost: "172.25.255.223" },
-    { id: "df61cdd2-0621-4f59-84ca-7d773441aa9f", name: "Iren.SHP", serverHost: "172.25.255.222" },
-    { id: "a5f7c1ef-610e-46fc-9fe7-39758708f4fb", name: "Iren.SHC", serverHost: "saphshc02.master.local" },
-    { id: "4c223f19-7988-4908-85e1-a2fcbbb64a04", name: "Iren.SM2", serverHost: "172.25.245.142" }
-  ] : [];
-  
   const vpnConnections: any[] = [];
 
   const mutation = useMutation({
@@ -138,7 +108,7 @@ export function SystemCredentialsForm({ credential, onSuccess, onCancel }: Syste
           <DialogDescription>
             {isEditing 
               ? "Modifica le credenziali esistenti per il sistema."
-              : "Aggiungi nuove credenziali per un sistema SAP o VPN."
+              : "Aggiungi nuove credenziali per un sistema VPN."
             }
           </DialogDescription>
         </DialogHeader>
@@ -162,7 +132,6 @@ export function SystemCredentialsForm({ credential, onSuccess, onCancel }: Syste
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="sap">SAP</SelectItem>
                       <SelectItem value="vpn">VPN</SelectItem>
                     </SelectContent>
                   </Select>
@@ -215,13 +184,7 @@ export function SystemCredentialsForm({ credential, onSuccess, onCancel }: Syste
               name="systemId"
               render={({ field }) => {
                 // Prepare options for SearchableSelect
-                const systemOptions = selectedSystemType === "sap" && Array.isArray(sapSystems) && sapSystems.length > 0
-                  ? sapSystems.map((system: any) => ({
-                      value: system.id,
-                      label: system.name,
-                      description: system.serverHost
-                    }))
-                  : [{ value: "temp-manual", label: `Inserimento manuale - aggiungi ${selectedSystemType.toUpperCase()}`, description: "Nessun sistema esistente trovato" }];
+                const systemOptions = [{ value: "temp-manual", label: `Inserimento manuale - aggiungi ${selectedSystemType.toUpperCase()}`, description: "Nessun sistema esistente trovato" }];
 
                 return (
                   <FormItem>
@@ -233,8 +196,7 @@ export function SystemCredentialsForm({ credential, onSuccess, onCancel }: Syste
                         onValueChange={(value) => {
                           field.onChange(value);
                           // Auto-fill system name from selected system
-                          const systems = selectedSystemType === "sap" ? sapSystems : vpnConnections;
-                          const selectedSystem = Array.isArray(systems) ? systems.find((s: any) => s.id === value) : null;
+                          const selectedSystem = Array.isArray(vpnConnections) ? vpnConnections.find((s: any) => s.id === value) : null;
                           if (selectedSystem) {
                             form.setValue("systemName", selectedSystem.name);
                           }
@@ -262,7 +224,7 @@ export function SystemCredentialsForm({ credential, onSuccess, onCancel }: Syste
                     <FormControl>
                       <Input 
                         {...field} 
-                        placeholder={selectedSystemType === "sap" ? "Es. PRD, DEV, QAS" : "Es. Cliente VPN, Office VPN"}
+                        placeholder="Es. Cliente VPN, Office VPN"
                         data-testid="input-system-name"
                       />
                     </FormControl>

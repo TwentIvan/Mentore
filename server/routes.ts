@@ -814,7 +814,6 @@ export function registerRoutes(app: Express): Server {
         parentTaskId: tasks.parentTaskId,
         userId: tasks.userId,
         assignedTo: tasks.assignedTo,
-        sapSystemId: tasks.sapSystemId,
         dueDate: tasks.dueDate,
         completedAt: tasks.completedAt,
         estimatedEffort: tasks.estimatedEffort,
@@ -849,13 +848,13 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get connection info for a task (VPN + SAP)
+  // Get connection info for a task (VPN)
   app.get("/api/tasks/:id/connection-info", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
       const connectionInfo = await storage.getTaskConnectionInfo(req.params.id, req.user!.id);
       if (!connectionInfo) {
-        return res.status(404).json({ error: "Task not found or no SAP system configured" });
+        return res.status(404).json({ error: "Task not found or no system configured" });
       }
       res.json(connectionInfo);
     } catch (error) {
@@ -870,7 +869,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const connectionInfo = await storage.getTaskConnectionInfo(req.params.id, req.user!.id);
       if (!connectionInfo) {
-        return res.status(404).json({ error: "Task not found or no SAP system configured" });
+        return res.status(404).json({ error: "Task not found or no system configured" });
       }
 
       // Check if VPN connection has pre-generated automation script
@@ -1201,7 +1200,6 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
       if (req.body.status !== undefined) updateData.status = req.body.status;
       if (req.body.priority !== undefined) updateData.priority = req.body.priority;
       if (req.body.projectId !== undefined) updateData.projectId = req.body.projectId;
-      if (req.body.sapSystemId !== undefined) updateData.sapSystemId = req.body.sapSystemId;
       if (req.body.dueDate !== undefined) updateData.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
       if (req.body.estimatedEffort !== undefined) updateData.estimatedEffort = req.body.estimatedEffort || null;
       if (req.body.completionPercentage !== undefined) updateData.completionPercentage = req.body.completionPercentage;
@@ -4078,114 +4076,6 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     }
   });
 
-  // SAP Systems
-  app.get("/api/sap-systems", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const organizationIds = await getOrganizationIdsForFilter(req);
-      const systemsList = await db.select().from(sapSystems)
-        .where(and(
-          eq(sapSystems.userId, req.user!.id),
-          inArray(sapSystems.organizationId, organizationIds)
-        ));
-      res.json(systemsList);
-    } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid request' });
-    }
-  });
-
-  app.get("/api/sap-systems/partner/:partnerId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const systems = await storage.getSapSystemsByPartner(req.params.partnerId, req.user!.id);
-    res.json(systems);
-  });
-
-  app.get("/api/sap-systems/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const system = await storage.getSapSystem(req.params.id, req.user!.id);
-    if (!system) return res.sendStatus(404);
-    res.json(system);
-  });
-
-  app.post("/api/sap-systems", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const systemData = { ...req.body, userId: req.user!.id };
-      const validatedData = insertSapSystemSchema.parse(systemData);
-      const system = await storage.createSapSystem(validatedData);
-      res.status(201).json(system);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid SAP system data", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  app.put("/api/sap-systems/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const system = await storage.updateSapSystem(req.params.id, req.body, req.user!.id);
-      if (!system) return res.sendStatus(404);
-      res.json(system);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to update SAP system", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  app.delete("/api/sap-systems/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const success = await storage.deleteSapSystem(req.params.id, req.user!.id);
-    if (!success) return res.sendStatus(404);
-    res.sendStatus(204);
-  });
-
-  // SAP System Credentials
-  app.get("/api/sap-systems/:systemId/credentials", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const credentials = await storage.getSapSystemCredentials(req.params.systemId, req.user!.id);
-    res.json(credentials);
-  });
-
-  app.get("/api/sap-systems/:systemId/credentials/active", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const credentials = await storage.getActiveSapSystemCredentials(req.params.systemId, req.user!.id);
-    res.json(credentials);
-  });
-
-  app.get("/api/sap-system-credentials/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const credential = await storage.getSapSystemCredential(req.params.id, req.user!.id);
-    if (!credential) return res.sendStatus(404);
-    res.json(credential);
-  });
-
-  app.post("/api/sap-systems/:systemId/credentials", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const credentialData = { ...req.body, sapSystemId: req.params.systemId, userId: req.user!.id };
-      const validatedData = insertSapSystemCredentialsSchema.parse(credentialData);
-      const credential = await storage.createSapSystemCredential(validatedData);
-      res.status(201).json(credential);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid SAP system credential data", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  app.put("/api/sap-system-credentials/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const credential = await storage.updateSapSystemCredential(req.params.id, req.body, req.user!.id);
-      if (!credential) return res.sendStatus(404);
-      res.json(credential);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to update SAP credential", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  app.delete("/api/sap-system-credentials/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const success = await storage.deleteSapSystemCredential(req.params.id, req.user!.id);
-    if (!success) return res.sendStatus(404);
-    res.sendStatus(204);
-  });
 
   // VPN Connections
   app.get("/api/vpn-connections", async (req, res) => {
@@ -4678,130 +4568,6 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     res.sendStatus(204);
   });
 
-  // Transport Requests
-  app.get("/api/transport-requests", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const requests = await storage.getTransportRequests(req.user!.id);
-    res.json(requests);
-  });
-
-  app.get("/api/transport-requests/sap-system/:systemId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const requests = await storage.getTransportRequestsBySapSystem(req.params.systemId, req.user!.id);
-    res.json(requests);
-  });
-
-  app.get("/api/transport-requests/project/:projectId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const requests = await storage.getTransportRequestsByProject(req.params.projectId, req.user!.id);
-    res.json(requests);
-  });
-
-  app.get("/api/transport-requests/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const request = await storage.getTransportRequest(req.params.id, req.user!.id);
-    if (!request) return res.sendStatus(404);
-    res.json(request);
-  });
-
-  app.get("/api/transport-requests/number/:requestNumber", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const request = await storage.getTransportRequestByNumber(req.params.requestNumber, req.user!.id);
-    if (!request) return res.sendStatus(404);
-    res.json(request);
-  });
-
-  app.post("/api/transport-requests", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const requestData = { ...req.body, userId: req.user!.id };
-      const validatedData = insertTransportRequestSchema.parse(requestData);
-      const request = await storage.createTransportRequest(validatedData);
-      res.status(201).json(request);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid transport request data", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  app.put("/api/transport-requests/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const request = await storage.updateTransportRequest(req.params.id, req.body, req.user!.id);
-      if (!request) return res.sendStatus(404);
-      res.json(request);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to update transport request", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  app.delete("/api/transport-requests/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const success = await storage.deleteTransportRequest(req.params.id, req.user!.id);
-    if (!success) return res.sendStatus(404);
-    res.sendStatus(204);
-  });
-
-  // Intervention Documents
-  app.get("/api/intervention-documents", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const documents = await storage.getInterventionDocuments(req.user!.id);
-    res.json(documents);
-  });
-
-  app.get("/api/intervention-documents/project/:projectId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const documents = await storage.getInterventionDocumentsByProject(req.params.projectId, req.user!.id);
-    res.json(documents);
-  });
-
-  app.get("/api/intervention-documents/transport-request/:transportRequestId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const documents = await storage.getInterventionDocumentsByTransportRequest(req.params.transportRequestId, req.user!.id);
-    res.json(documents);
-  });
-
-  app.get("/api/intervention-documents/status/:status", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const documents = await storage.getInterventionDocumentsByStatus(req.params.status, req.user!.id);
-    res.json(documents);
-  });
-
-  app.get("/api/intervention-documents/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const document = await storage.getInterventionDocument(req.params.id, req.user!.id);
-    if (!document) return res.sendStatus(404);
-    res.json(document);
-  });
-
-  app.post("/api/intervention-documents", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const documentData = { ...req.body, userId: req.user!.id };
-      const validatedData = insertInterventionDocumentSchema.parse(documentData);
-      const document = await storage.createInterventionDocument(validatedData);
-      res.status(201).json(document);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid intervention document data", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  app.put("/api/intervention-documents/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const document = await storage.updateInterventionDocument(req.params.id, req.body, req.user!.id);
-      if (!document) return res.sendStatus(404);
-      res.json(document);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to update intervention document", details: error instanceof Error ? error.message : String(error) });
-    }
-  });
-
-  app.delete("/api/intervention-documents/:id", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const success = await storage.deleteInterventionDocument(req.params.id, req.user!.id);
-    if (!success) return res.sendStatus(404);
-    res.sendStatus(204);
-  });
 
   // System Credentials (unified SAP + VPN)
   app.get("/api/system-credentials", async (req, res) => {
@@ -4856,84 +4622,78 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     res.sendStatus(204);
   });
 
-  // AI Documentation Generation
-  app.post("/api/intervention-documents/generate", async (req, res) => {
+  // Interest Areas
+  app.get("/api/interest-areas", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    try {
-      const { transportRequestId, title, type = "transport_analysis" } = req.body;
-      
-      if (!transportRequestId) {
-        return res.status(400).json({ error: "Transport request ID is required" });
-      }
+    const organizationId = getOrganizationId(req);
+    const areas = await storage.getInterestAreas(req.user!.id, organizationId);
+    res.json(areas);
+  });
 
-      // Get transport request with cofile content for AI analysis
-      const transportRequest = await storage.getTransportRequest(transportRequestId, req.user!.id);
-      if (!transportRequest) {
-        return res.status(404).json({ error: "Transport request not found" });
-      }
+  app.get("/api/interest-areas/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const area = await storage.getInterestArea(req.params.id, req.user!.id);
+    if (!area) return res.status(404).send("Interest area not found");
+    res.json(area);
+  });
 
-      if (!transportRequest.cofileContent) {
-        return res.status(400).json({ error: "Transport request must have cofile content for AI analysis" });
-      }
+  app.post("/api/interest-areas", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const result = insertInterestAreaSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).send(result.error.message);
+    const area = await storage.createInterestArea(result.data);
+    res.status(201).json(area);
+  });
 
-      // Generate AI documentation
-      const analysisPrompt = `Analyze this SAP transport request and generate professional documentation:
-      
-Transport: ${transportRequest.requestNumber}
-Description: ${transportRequest.description}
-Owner: ${transportRequest.owner}
-Type: ${transportRequest.type}
-Status: ${transportRequest.status}
+  app.put("/api/interest-areas/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const area = await storage.updateInterestArea(req.params.id, req.body, req.user!.id);
+    if (!area) return res.status(404).send("Interest area not found");
+    res.json(area);
+  });
 
-Cofile Content:
-${transportRequest.cofileContent}
+  app.delete("/api/interest-areas/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const success = await storage.deleteInterestArea(req.params.id, req.user!.id);
+    if (!success) return res.status(404).send("Interest area not found");
+    res.status(204).send();
+  });
 
-Objects Included: ${transportRequest.includedObjects?.join(', ') || 'Not specified'}
+  // Time Allocation Templates
+  app.get("/api/time-allocation-templates", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    const templates = await storage.getTimeAllocationTemplates(req.user!.id, organizationId);
+    res.json(templates);
+  });
 
-Please generate a comprehensive intervention document that includes:
-1. Executive Summary
-2. Technical Changes Overview
-3. Objects Modified/Created
-4. Impact Analysis
-5. Testing Recommendations
-6. Deployment Notes
-7. Rollback Procedures (if applicable)
+  app.get("/api/time-allocation-templates/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const template = await storage.getTimeAllocationTemplate(req.params.id, req.user!.id);
+    if (!template) return res.status(404).send("Template not found");
+    res.json(template);
+  });
 
-Format the response as professional documentation suitable for client delivery.`;
+  app.post("/api/time-allocation-templates", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const result = insertTimeAllocationTemplateSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).send(result.error.message);
+    const template = await storage.createTimeAllocationTemplate(result.data);
+    res.status(201).json(template);
+  });
 
-      const aiResponse = await aiService.generateDocumentation(analysisPrompt);
-      
-      // Create intervention document with AI content
-      const documentData = {
-        userId: req.user!.id,
-        transportRequestId,
-        title: title || `Documentation for Transport ${transportRequest.requestNumber}`,
-        type,
-        aiGeneratedContent: aiResponse.content,
-        aiConfidenceScore: aiResponse.confidence,
-        aiModel: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-        analysisPrompt,
-        sourceFiles: transportRequest.cofilePath ? [transportRequest.cofilePath] : [],
-        sapSystemId: transportRequest.sapSystemId,
-        projectId: transportRequest.projectId,
-        taskId: transportRequest.taskId
-      };
+  app.put("/api/time-allocation-templates/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const template = await storage.updateTimeAllocationTemplate(req.params.id, req.body, req.user!.id);
+    if (!template) return res.status(404).send("Template not found");
+    res.json(template);
+  });
 
-      const validatedData = insertInterventionDocumentSchema.parse(documentData);
-      const document = await storage.createInterventionDocument(validatedData);
-      
-      res.status(201).json({
-        document,
-        aiGenerated: true,
-        confidence: aiResponse.confidence
-      });
-    } catch (error) {
-      console.error("AI documentation generation error:", error);
-      res.status(500).json({ 
-        error: "Failed to generate AI documentation", 
-        details: error instanceof Error ? error.message : String(error) 
-      });
-    }
+  app.delete("/api/time-allocation-templates/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const success = await storage.deleteTimeAllocationTemplate(req.params.id, req.user!.id);
+    if (!success) return res.status(404).send("Template not found");
+    res.status(204).send();
   });
 
   // Audit API endpoints

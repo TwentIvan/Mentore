@@ -23,7 +23,6 @@ const getDefaultNavigation = (t: any) => [
 
 // Systems group
 const getDefaultSystemsItems = (t: any) => [
-  { id: "s1", name: t("nav.sapSystems"), href: "/sap-systems", icon: Server, testId: "nav-sap-systems" },
   { id: "s2", name: t("nav.vpnConnections"), href: "/vpn-connections", icon: Wifi, testId: "nav-vpn-connections" },
   { id: "s3", name: t("nav.systemCredentials"), href: "/system-credentials", icon: Key, testId: "nav-system-credentials" },
 ];
