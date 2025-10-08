@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Plus, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Trash2, RotateCcw, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TimeAllocationAIAssistant } from "@/components/time-allocation-ai-assistant";
 
 export interface TimeAllocation {
   id: string;
@@ -15,11 +16,18 @@ export interface TimeAllocation {
   color: string;
 }
 
+interface Area {
+  id: string;
+  name: string;
+  description?: string;
+}
+
 interface InteractiveTimeAllocationPieChartProps {
   initialAllocations?: TimeAllocation[];
   onAllocationsChange?: (allocations: TimeAllocation[]) => void;
   className?: string;
   editable?: boolean;
+  availableAreas?: Area[];
 }
 
 const DEFAULT_COLORS = [
@@ -47,9 +55,11 @@ export function InteractiveTimeAllocationPieChart({
   onAllocationsChange,
   className,
   editable = true,
+  availableAreas = [],
 }: InteractiveTimeAllocationPieChartProps) {
   const [allocations, setAllocations] = useState<TimeAllocation[]>(initialAllocations);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
   useEffect(() => {
     setAllocations(initialAllocations);
@@ -126,6 +136,11 @@ export function InteractiveTimeAllocationPieChart({
     );
   };
 
+  const handleAIAllocations = (aiAllocations: TimeAllocation[]) => {
+    setAllocations(aiAllocations);
+    onAllocationsChange?.(aiAllocations);
+  };
+
   return (
     <Card className={cn("w-full", className)} data-testid="card-time-allocation-chart">
       <CardHeader>
@@ -137,15 +152,28 @@ export function InteractiveTimeAllocationPieChart({
             </CardDescription>
           </div>
           {editable && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={resetAllocations}
-              data-testid="button-reset-allocations"
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset
-            </Button>
+            <div className="flex gap-2">
+              {availableAreas.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAIAssistant(true)}
+                  data-testid="button-ai-time-assistant"
+                >
+                  <Bot className="h-4 w-4 mr-2" />
+                  AI Assistant
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetAllocations}
+                data-testid="button-reset-allocations"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+            </div>
           )}
         </div>
       </CardHeader>
@@ -288,6 +316,16 @@ export function InteractiveTimeAllocationPieChart({
           </div>
         </div>
       </CardContent>
+
+      {/* AI Assistant Dialog */}
+      {availableAreas.length > 0 && (
+        <TimeAllocationAIAssistant
+          open={showAIAssistant}
+          onOpenChange={setShowAIAssistant}
+          areas={availableAreas}
+          onAcceptAllocations={handleAIAllocations}
+        />
+      )}
     </Card>
   );
 }

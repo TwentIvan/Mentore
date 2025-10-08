@@ -16,9 +16,10 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Edit, Trash2, Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles } from "lucide-react";
+import { Plus, Edit, Trash2, Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles, Bot } from "lucide-react";
 import type { InterestArea } from "@shared/schema";
 import { insertInterestAreaSchema } from "@shared/schema";
+import { AIAssistantDialog } from "@/components/ai-assistant-dialog";
 
 // Icon mapping
 const iconMap = {
@@ -69,6 +70,7 @@ export default function InterestAreasPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [selectedArea, setSelectedArea] = useState<InterestArea | null>(null);
 
   const { toast } = useToast();
@@ -209,6 +211,37 @@ export default function InterestAreasPage() {
     return iconMap[iconName as keyof typeof iconMap];
   };
 
+  const handleAcceptSuggestions = async (suggestions: Array<{name: string; description: string; color: string; reasoning: string}>) => {
+    try {
+      const promises = suggestions.map(suggestion => 
+        apiRequest("POST", "/api/interest-areas", {
+          name: suggestion.name,
+          description: suggestion.description,
+          color: suggestion.color,
+          icon: "Sparkles",
+          userId: "current",
+          organizationId: currentOrganizationId,
+          isActive: true,
+        }).then(res => res.json())
+      );
+
+      await Promise.all(promises);
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/interest-areas", currentOrganizationId] });
+      
+      toast({
+        title: "Aree create",
+        description: `${suggestions.length} aree di interesse create con successo`,
+      });
+    } catch (error) {
+      toast({
+        title: "Errore",
+        description: "Impossibile creare alcune aree di interesse",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
@@ -223,10 +256,20 @@ export default function InterestAreasPage() {
                   Gestisci le categorie per organizzare i tuoi progetti e attività
                 </p>
               </div>
-              <Button data-testid="button-create-area" onClick={handleCreate}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nuova Area
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  data-testid="button-ai-assistant" 
+                  variant="outline"
+                  onClick={() => setShowAIAssistant(true)}
+                >
+                  <Bot className="h-4 w-4 mr-2" />
+                  Assistente AI
+                </Button>
+                <Button data-testid="button-create-area" onClick={handleCreate}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nuova Area
+                </Button>
+              </div>
             </div>
 
             {isLoading ? (
@@ -251,10 +294,20 @@ export default function InterestAreasPage() {
                   <p className="text-muted-foreground text-center mb-4">
                     Crea la tua prima area di interesse per iniziare a organizzare i tuoi progetti
                   </p>
-                  <Button data-testid="button-create-first-area" onClick={handleCreate}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Crea Area
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      data-testid="button-ai-create-first" 
+                      variant="outline"
+                      onClick={() => setShowAIAssistant(true)}
+                    >
+                      <Bot className="h-4 w-4 mr-2" />
+                      Usa Assistente AI
+                    </Button>
+                    <Button data-testid="button-create-first-area" onClick={handleCreate}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Crea Manualmente
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ) : (
@@ -481,6 +534,13 @@ export default function InterestAreasPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* AI Assistant Dialog */}
+      <AIAssistantDialog
+        open={showAIAssistant}
+        onOpenChange={setShowAIAssistant}
+        onAcceptSuggestions={handleAcceptSuggestions}
+      />
     </div>
   );
 }

@@ -182,6 +182,11 @@ export default function TimePlannerPage() {
                 initialAllocations={currentAllocations}
                 onAllocationsChange={setCurrentAllocations}
                 editable={true}
+                availableAreas={interestAreas.map(area => ({
+                  id: area.id,
+                  name: area.name,
+                  description: area.description || undefined
+                }))}
               />
 
               {/* Save Actions */}
