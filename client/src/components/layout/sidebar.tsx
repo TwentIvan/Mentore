@@ -162,7 +162,7 @@ export default function Sidebar() {
     <aside className="w-80 bg-card border-r border-border flex flex-col">
       {/* Logo and Brand */}
       <div className="p-6 border-b border-border">
-        <div className="flex justify-center">
+        <div className="flex justify-center bg-red-500">
           <img
             src={logoSymbol}
             alt="Mentore"
