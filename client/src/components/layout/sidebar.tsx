@@ -166,7 +166,7 @@ export default function Sidebar() {
           <img
             src={logoSymbol}
             alt="Mentore"
-            className="w-32 h-32 object-contain"
+            className="w-48 h-48 object-contain"
             data-testid="img-app-logo"
           />
         </div>
