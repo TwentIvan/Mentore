@@ -71,7 +71,8 @@ export const getQueryFn: <T>(options: {
     // Add personal scope header
     headers["X-Organization-Scope"] = currentPersonalScope;
 
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = typeof queryKey[0] === 'string' ? queryKey[0] : queryKey.join("/");
+    const res = await fetch(url, {
       credentials: "include",
       headers,
     });

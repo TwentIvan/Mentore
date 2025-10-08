@@ -88,7 +88,6 @@ export default function InterestAreasPage() {
   // Fetch interest areas
   const { data: areas = [], isLoading } = useQuery<InterestArea[]>({
     queryKey: ["/api/interest-areas", currentOrganizationId],
-    queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!currentOrganizationId,
   });
 
