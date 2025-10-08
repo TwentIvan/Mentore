@@ -264,7 +264,7 @@ export default function RateAgreementForm({ rateAgreement, onSuccess }: RateAgre
                   <FormLabel>Nome Accordo</FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder="es. Cliente ABC - Progetto XYZ, SAP Consulting - Standard"
+                      placeholder="es. Cliente ABC - Progetto XYZ, Consulting - Standard"
                       {...field}
                       data-testid="input-agreement-name"
                     />

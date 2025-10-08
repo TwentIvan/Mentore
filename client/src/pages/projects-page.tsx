@@ -277,7 +277,7 @@ export default function ProjectsPage() {
       <main className="flex-1 overflow-auto">
         <Header 
           title="Progetti" 
-          subtitle="Gestione progetti SAP ABAP"
+          subtitle="Gestione progetti e attività"
           onNewClick={handleAdd}
         />
         
@@ -304,7 +304,7 @@ export default function ProjectsPage() {
             <div className="text-center py-12">
               <Code className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">Nessun progetto</h3>
-              <p className="text-muted-foreground mb-4">Crea il tuo primo progetto SAP ABAP</p>
+              <p className="text-muted-foreground mb-4">Crea il tuo primo progetto</p>
               <Button onClick={handleAdd} data-testid="button-create-first-project">
                 Crea Progetto
               </Button>

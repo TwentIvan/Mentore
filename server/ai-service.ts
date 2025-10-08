@@ -206,7 +206,7 @@ export class AIService {
         messages: [
           {
             role: "system",
-            content: "You are a specialized AI assistant for SAP ABAP development documentation. Create comprehensive, professional intervention documents that provide clear technical analysis, implementation details, and actionable recommendations. Focus on accuracy, clarity, and completeness."
+            content: "You are a specialized AI assistant for professional project documentation. Create comprehensive, professional intervention documents that provide clear technical analysis, implementation details, and actionable recommendations. Focus on accuracy, clarity, and completeness."
           },
           {
             role: "user",

@@ -53,13 +53,13 @@ export async function analyzeMessageForProject(
   existingPartners: Partner[],
   existingTasks: Task[]
 ): Promise<ProjectProposal> {
-  const systemPrompt = `You are an intelligent project management assistant for a SAP ABAP freelancer CRM system.
+  const systemPrompt = `You are an intelligent project management assistant for a professional activity and task management system.
 
 ## ⚠️ MANDATORY LANGUAGE REQUIREMENT ⚠️
 **YOU MUST WRITE EVERYTHING IN ITALIAN - NO EXCEPTIONS**
 
 ALL generated content MUST be in ITALIAN language:
-- Project names → IN ITALIAN (e.g., "Sviluppo Report Vendite SAP", NOT "Sales Report Development")
+- Project names → IN ITALIAN (e.g., "Sviluppo Report Vendite", NOT "Sales Report Development")
 - Descriptions → IN ITALIAN (e.g., "Creazione di un report personalizzato per...", NOT "Creation of a custom report for...")
 - Task titles → IN ITALIAN (e.g., "Analisi requisiti tecnici", NOT "Technical requirements analysis")
 - Task descriptions → IN ITALIAN (e.g., "Raccogliere e documentare i requisiti funzionali", NOT "Gather and document functional requirements")
@@ -69,9 +69,9 @@ The user's interface is 100% in Italian. Everything you generate will be display
 WRITE IN ITALIAN. DO NOT USE ENGLISH.
 
 ## BUSINESS CONTEXT
-The user is a SAP ABAP freelance developer managing:
-- **Projects**: SAP development/consulting engagements (custom ABAP programs, Fiori apps, BW reports, enhancements, bug fixes)
-- **Partners**: Clients (companies needing SAP work), vendors (subcontractors), consultants (collaborators)
+The user is a professional managing projects and activities:
+- **Projects**: Development, consulting, or service engagements (software projects, consulting work, service delivery, enhancements, maintenance)
+- **Partners**: Clients (companies needing services), vendors (subcontractors), consultants (collaborators)
 - **Tasks**: Specific work items within projects (development, analysis, design, testing, consulting, meetings, documentation)
 - **Messages**: Emails, chats, SMS from clients, team members, vendors
 
@@ -143,14 +143,14 @@ Extract reference contacts from the message - these are people mentioned or visi
 - Any new request, requirement, or work item → NEW project (isNew=true)
 - Use "planning" status for new requests, "in_progress" only if message clearly updates existing work
 
-### Task Creation (SAP ABAP Specific)
+### Task Creation
 Break down work into specific tasks based on message content:
 
 **Development Tasks** (taskType: "development"):
-- Custom ABAP programs, reports, interfaces
-- Fiori/UI5 app development
-- SAP enhancements, user exits, BADIs
-- Data migration programs
+- Software development, custom programs, features
+- Application/web development
+- System integrations, APIs
+- Data processing and migration
 
 **Analysis Tasks** (taskType: "analysis"):
 - Requirements analysis
@@ -162,31 +162,34 @@ Break down work into specific tasks based on message content:
 - Solution architecture
 - Database design
 - Interface design
+- UX/UI design
 
 **Testing Tasks** (taskType: "testing"):
 - Unit testing, integration testing
 - User acceptance testing support
+- Quality assurance
 
 **Consulting Tasks** (taskType: "consulting"):
 - Client meetings, workshops
 - Training sessions
 - Best practice recommendations
+- Expert advice
 
 **Documentation Tasks** (taskType: "documentation"):
 - Technical documentation
 - User manuals
-- Code comments
+- Process documentation
 
 **Support/Maintenance** (taskType: "maintenance" or "support"):
 - Bug fixes, troubleshooting
-- Production support
+- System support
 - Performance optimization
 
 ### Effort Estimation (Conservative)
-- Simple report/form: 8-16 hours
-- Medium ABAP program: 24-40 hours
-- Complex interface/integration: 40-80 hours
-- Fiori app: 60-120 hours
+- Simple feature/report: 8-16 hours
+- Medium development task: 24-40 hours
+- Complex integration/feature: 40-80 hours
+- Full application development: 60-120 hours
 - Analysis/design: 4-16 hours per task
 - Meetings/consulting: 2-4 hours per session
 - Bug fix: 2-8 hours
@@ -212,7 +215,7 @@ Return valid JSON ONLY with this exact structure (with ITALIAN content):
   "project": {
     "isNew": boolean,
     "existingId": "uuid-if-matching-existing-project",
-    "name": "ITALIAN: Nome breve descrittivo (es. 'Sviluppo Modulo Fatturazione SAP')",
+    "name": "ITALIAN: Nome breve descrittivo (es. 'Sviluppo Modulo Fatturazione')",
     "description": "ITALIAN: Descrizione dettagliata estratta dal messaggio (2-3 frasi in italiano)",
     "status": "planning|in_progress|review|completed|on_hold",
     "startDate": "YYYY-MM-DD if mentioned or implied",

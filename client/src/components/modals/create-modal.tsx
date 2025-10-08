@@ -13,7 +13,7 @@ const createOptions = [
   {
     id: "project",
     title: "Project", 
-    description: "New SAP project",
+    description: "New project",
     icon: FolderOpen,
     route: "/projects",
     testId: "button-create-project"
