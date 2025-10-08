@@ -45,7 +45,7 @@ function NavItem({ item, isActive }: { item: any; isActive: boolean }) {
       onClick={() => setLocation(item.href)}
     >
       <div 
-        className="flex items-center px-3 py-2 rounded-full nav-box transition-colors flex-1" 
+        className="flex items-center px-3 py-2 rounded-md nav-box transition-colors flex-1" 
         style={{ 
           backgroundColor: isActive ? 'hsl(160, 15%, 55%, 0.3)' : 'hsl(160, 15%, 55%, 0.1)', 
           border: '1px solid hsl(160, 15%, 55%, 0.2)', 
@@ -71,7 +71,7 @@ function ParentItem({ item, children, isOpen, onToggle, hasActiveChild = false }
         data-testid={item.testId}
       >
         <div 
-          className="flex items-center px-3 py-2 rounded-full nav-box transition-colors flex-1 pointer-events-none" 
+          className="flex items-center px-3 py-2 rounded-md nav-box transition-colors flex-1 pointer-events-none" 
           style={{ 
             backgroundColor: hasActiveChild ? 'hsl(160, 15%, 55%, 0.25)' : 'hsl(160, 15%, 55%, 0.1)', 
             border: '1px solid hsl(160, 15%, 55%, 0.2)', 
@@ -83,7 +83,7 @@ function ParentItem({ item, children, isOpen, onToggle, hasActiveChild = false }
           <span className="text-base font-medium flex-1 text-muted-foreground">{item.name}</span>
           <button 
             onClick={onToggle}
-            className="ml-2 w-6 h-6 rounded-full border border-current hover:bg-white/20 transition-colors flex items-center justify-center pointer-events-auto"
+            className="ml-2 w-6 h-6 rounded-md border border-current hover:bg-white/20 transition-colors flex items-center justify-center pointer-events-auto"
             style={{ borderColor: 'hsl(160, 15%, 55%)', color: 'hsl(160, 15%, 55%)' }}
           >
             {isOpen ? (
@@ -108,7 +108,7 @@ function SubNavItem({ item, isActive, onChildClick }: { item: any; isActive: boo
     <div className="ml-4">
       <div className="w-full p-2 rounded-md group flex items-center transition-colors sidebar-nav-item text-muted-foreground hover:bg-muted/20">
         <button 
-          className="flex items-center px-3 py-1 rounded-full nav-box transition-colors flex-1 cursor-pointer border-0 bg-transparent" 
+          className="flex items-center px-3 py-1 rounded-md nav-box transition-colors flex-1 cursor-pointer border-0 bg-transparent" 
           style={{ 
             backgroundColor: isActive ? 'hsl(160, 15%, 55%, 0.25)' : 'hsl(160, 15%, 55%, 0.08)', 
             border: '1px solid hsl(160, 15%, 55%, 0.15)', 
@@ -223,7 +223,7 @@ export default function Sidebar() {
       {/* User Profile */}
       <div className="p-4 border-t border-border">
         <div className="flex items-center space-x-3 p-3 rounded-md hover:bg-accent transition-colors">
-          <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-secondary rounded-md flex items-center justify-center">
             <User className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="flex-1 min-w-0">
