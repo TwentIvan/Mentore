@@ -3,19 +3,16 @@ import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, CheckSquare, Handshake, Calendar, User, LogOut, Mail, Sparkles, Contact, Tag } from "lucide-react";
+import { FolderOpen, CheckSquare, Calendar, User, LogOut, Sparkles, Tag } from "lucide-react";
 import logoSymbol from "@assets/ChatGPT Image 8 ott 2025, 11_45_12_1759921521136.png";
 
 // Main navigation
 const getDefaultNavigation = (t: any) => [
+  { id: "t1", name: t("nav.interestAreas"), href: "/interest-areas", icon: Tag, testId: "nav-interest-areas" },
+  { id: "t0", name: "Mappa del Tempo", href: "/time-planner", icon: Calendar, testId: "nav-time-planner" },
   { id: "1", name: t("nav.projects"), href: "/projects", icon: FolderOpen, testId: "nav-projects" },
   { id: "2", name: t("nav.tasks"), href: "/tasks", icon: CheckSquare, testId: "nav-tasks" },
-  { id: "3", name: t("nav.partners"), href: "/partners", icon: Handshake, testId: "nav-partners" },
-  { id: "3b", name: t("nav.contacts"), href: "/contacts", icon: Contact, testId: "nav-contacts" },
-  { id: "4", name: t("nav.messages"), href: "/messages", icon: Mail, testId: "nav-messages" },
   { id: "5", name: t("nav.proposals"), href: "/proposals", icon: Sparkles, testId: "nav-proposals" },
-  { id: "t0", name: t("nav.timePlanner"), href: "/time-planner", icon: Calendar, testId: "nav-time-planner" },
-  { id: "t1", name: t("nav.interestAreas"), href: "/interest-areas", icon: Tag, testId: "nav-interest-areas" },
 ];
 
 // Simple Navigation Item Component

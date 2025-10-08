@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Search, Mail, Calendar, FolderTree, Building, User, ChevronDown, Check, Users, X, FolderOpen, CheckSquare, Handshake, FileText, DollarSign, Server, Key, Wifi, Clock, Settings, LogOut, Globe, Eye } from "lucide-react";
+import { Search, Mail, Calendar, FolderTree, Building, User, ChevronDown, Check, Users, X, FolderOpen, CheckSquare, Handshake, FileText, DollarSign, Server, Key, Wifi, Clock, Settings, LogOut, Globe, Eye, Contact } from "lucide-react";
 import { ThemeSelector } from "@/components/theme/theme-selector";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -199,6 +199,24 @@ export default function Header({ title, subtitle, onNewClick }: HeaderProps) {
                 </Button>
               </Link>
               
+              {/* Contacts Button */}
+              <Link href="/contacts">
+                <Button 
+                  variant="ghost" 
+                  className="flex items-center"
+                  style={getButtonStyle('contacts', hoveredButton)}
+                  onMouseEnter={() => setHoveredButton('contacts')}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  data-testid="button-contacts"
+                >
+                  <Contact className="flex-shrink-0" style={{ width: '2rem', height: '2rem', color: '#6b7280' }} />
+                  {hoveredButton === 'contacts' && (
+                    <span className="ml-3 text-foreground font-medium whitespace-nowrap">
+                      Contatti
+                    </span>
+                  )}
+                </Button>
+              </Link>
 
             </div>
           </TooltipProvider>
