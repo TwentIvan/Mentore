@@ -159,7 +159,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-80 bg-background border-r border-border flex flex-col">
+    <aside className="w-80 bg-card border-r border-border flex flex-col">
       {/* Logo and Brand */}
       <div className="p-6 border-b border-border">
         <div className="flex justify-center">
@@ -167,6 +167,7 @@ export default function Sidebar() {
             src={logoSymbol}
             alt="Mentore"
             className="w-48 h-48 object-contain"
+            style={{ mixBlendMode: 'multiply' }}
             data-testid="img-app-logo"
           />
         </div>
