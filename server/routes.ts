@@ -12,16 +12,15 @@ import {
   insertDealSchema, insertCalendarEventSchema, insertPlanningWindowSchema, insertTimeEntrySchema,
   insertMessageSchema, insertCommentSchema, insertMessageLinkSchema, insertEmailConfigSchema, insertTimesheetSchema,
   insertSalesOrderSchema, insertSalesOrderItemSchema, insertRateAgreementSchema,
-  insertHumanResourceSchema, insertSapSystemSchema, insertSapSystemCredentialsSchema,
-  insertVpnConnectionSchema, insertVpnCredentialsSchema, insertTransportRequestSchema,
-  insertInterventionDocumentSchema, insertSystemCredentialsSchema,
+  insertHumanResourceSchema, insertInterestAreaSchema, insertTimeAllocationTemplateSchema,
+  insertVpnConnectionSchema, insertVpnCredentialsSchema, insertSystemCredentialsSchema,
   insertVpnSoftwareSchema, insertVpnSystemsSchema, vpnConnections,
   insertDiscoveredVpnSoftwareSchema, insertDiscoveredVpnConfigurationSchema,
   insertOrganizationSchema, insertUserOrganizationSchema, insertOrganizationInvitationSchema,
   insertOrganizationDomainSchema, insertEmailFeedbackSchema, insertEmailTrainingSelectionSchema,
   type EmailConfig,
   projects, tasks, partners, contacts, messages, deals, calendarEvents, salesOrders, rateAgreements,
-  humanResources, sapSystems, systemCredentials, timesheets, comments
+  humanResources, systemCredentials, timesheets, comments, interestAreas, timeAllocationTemplates
 } from "@shared/schema";
 import { aiService } from "./ai-service";
 import { initializeEmailService, getEmailService } from "./imap-service";

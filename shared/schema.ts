@@ -50,6 +50,35 @@ export const userOrganizations = pgTable("user_organizations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Interest Areas - Categorie per organizzare i progetti (Lavoro, Studio, Fitness, etc.)
+export const interestAreas = pgTable("interest_areas", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  name: text("name").notNull(), // "Lavoro", "Studio", "Fitness", "Progetti personali"
+  description: text("description"),
+  color: text("color").notNull().default("#3B82F6"), // Colore per visualizzazione
+  icon: text("icon"), // Nome icona lucide-react (es. "Briefcase", "GraduationCap", "Dumbbell")
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Time Allocation Templates - Template per allocazione tempo tra aree di interesse
+export const timeAllocationTemplates = pgTable("time_allocation_templates", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  name: text("name").notNull(), // "Settimana lavorativa", "Weekend produttivo", "Vacanza studio"
+  description: text("description"),
+  isDefault: boolean("is_default").default(false).notNull(), // Template predefinito dell'utente
+  // Allocazioni come JSON: { "area-id-1": { percentage: 60, hours: 48 }, "area-id-2": { percentage: 40, hours: 32 } }
+  allocations: jsonb("allocations").notNull(),
+  totalHoursPerWeek: integer("total_hours_per_week").default(80).notNull(), // Ore totali da allocare
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const projectStatusEnum = pgEnum("project_status", ["planning", "in_progress", "review", "completed", "on_hold"]);
 
 export const projects = pgTable("projects", {
@@ -60,6 +89,7 @@ export const projects = pgTable("projects", {
   clientId: uuid("client_id").references(() => partners.id),
   dealId: uuid("deal_id").references(() => deals.id), // Collegamento all'accordo per tariffe
   parentProjectId: uuid("parent_project_id"), // Self-reference for project hierarchy
+  interestAreaId: uuid("interest_area_id").references(() => interestAreas.id), // Area di interesse del progetto
   userId: uuid("user_id").references(() => users.id).notNull(),
   organizationId: uuid("organization_id").references(() => organizations.id).notNull(), // Data segregation
   startDate: timestamp("start_date"),
@@ -92,7 +122,6 @@ export const tasks = pgTable("tasks", {
   userId: uuid("user_id").references(() => users.id).notNull(),
   organizationId: uuid("organization_id").references(() => organizations.id).notNull(), // Data segregation
   assignedTo: uuid("assigned_to").references(() => users.id),
-  sapSystemId: uuid("sap_system_id").references(() => sapSystems.id), // Collegamento al sistema SAP per connessione automatica
   dueDate: timestamp("due_date"),
   completedAt: timestamp("completed_at"),
   estimatedEffort: integer("estimated_effort"), // in hours
@@ -477,71 +506,6 @@ export const humanResources = pgTable("human_resources", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// SAP Systems Management
-export const sapSystemTypeEnum = pgEnum("sap_system_type", ["ecc", "s4hana", "bw", "pi", "po", "solution_manager", "crm", "srm", "other"]);
-export const sapSystemStatusEnum = pgEnum("sap_system_status", ["active", "inactive", "maintenance", "test"]);
-
-export const sapSystems = pgTable("sap_systems", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id").references(() => users.id).notNull(),
-  organizationId: uuid("organization_id").references(() => organizations.id).notNull(), // Data segregation
-  partnerId: uuid("partner_id").references(() => partners.id), // Cliente a cui appartiene il sistema (opzionale)
-  projectId: uuid("project_id").references(() => projects.id), // Progetto associato opzionale
-  name: text("name").notNull(), // Nome del sistema (es. "PRD", "DEV", "QAS")
-  description: text("description"),
-  systemType: sapSystemTypeEnum("system_type").default("ecc").notNull(),
-  status: sapSystemStatusEnum("status").default("active").notNull(),
-  
-  // Connection details
-  serverHost: text("server_host").notNull(), // IP o hostname
-  systemNumber: text("system_number").notNull(), // 00, 01, etc.
-  // clientNumber rimosso - è dato applicativo che va nelle credenziali
-  applicationServerPort: integer("application_server_port").default(3200), // 32XX
-  messageServerPort: integer("message_server_port").default(3600), // 36XX
-  
-  // Additional SAP details
-  sapReleaseVersion: text("sap_release_version"), // 750, 740, etc.
-  kernelVersion: text("kernel_version"),
-  landscape: text("landscape").default("production"), // production, test, development
-  
-  // VPN Configuration
-  vpnConnectionId: uuid("vpn_connection_id").references(() => vpnConnections.id),
-  
-  notes: text("notes"),
-  isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// Credenziali multiple per ogni sistema SAP
-export const sapSystemCredentials = pgTable("sap_system_credentials", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  sapSystemId: uuid("sap_system_id").references(() => sapSystems.id).notNull(),
-  userId: uuid("user_id").references(() => users.id).notNull(),
-  organizationId: uuid("organization_id").references(() => organizations.id).notNull(), // Data segregation
-  
-  // Credential details
-  username: text("username").notNull(),
-  password: text("password").notNull(), // Encrypted in storage
-  description: text("description"), // "Admin user", "Developer", "Functional", etc.
-  
-  // Authorization details
-  userType: text("user_type").default("dialog").notNull(), // dialog, system, service, communication
-  authorizationProfile: text("authorization_profile"), // SAP_ALL, Z_DEVELOPER, etc.
-  
-  // Validity
-  validFrom: timestamp("valid_from").defaultNow().notNull(),
-  validTo: timestamp("valid_to"), // null = no expiration
-  isActive: boolean("is_active").default(true).notNull(),
-  
-  // Last usage tracking
-  lastUsed: timestamp("last_used"),
-  usageCount: integer("usage_count").default(0).notNull(),
-  
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
 
 // VPN Connections for accessing SAP systems
 export const vpnConnectionTypeEnum = pgEnum("vpn_connection_type", ["openvpn", "ipsec", "wireguard", "cisco_anyconnect", "fortigate", "other"]);
@@ -759,92 +723,6 @@ export const discoveredVpnConfigurations = pgTable("discovered_vpn_configuration
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Transport Request files (cofile and data file)
-export const transportRequestStatusEnum = pgEnum("transport_request_status", ["development", "testing", "quality", "production", "released", "imported"]);
-export const transportRequestTypeEnum = pgEnum("transport_request_type", ["workbench", "customizing", "copy", "relocate"]);
-
-export const transportRequests = pgTable("transport_requests", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id").references(() => users.id).notNull(),
-  sapSystemId: uuid("sap_system_id").references(() => sapSystems.id).notNull(),
-  projectId: uuid("project_id").references(() => projects.id),
-  taskId: uuid("task_id").references(() => tasks.id),
-  
-  // Transport request details
-  requestNumber: text("request_number").notNull().unique(), // DEVK9XXXXX
-  description: text("description").notNull(),
-  type: transportRequestTypeEnum("type").default("workbench").notNull(),
-  status: transportRequestStatusEnum("status").default("development").notNull(),
-  
-  // Owner information
-  owner: text("owner").notNull(), // SAP user who created the transport
-  targetSystem: text("target_system"), // Target system for import
-  
-  // File information
-  cofilePath: text("cofile_path"), // Path to cofile (control file)
-  datafilePath: text("datafile_path"), // Path to data file
-  cofileContent: text("cofile_content"), // Content of cofile for AI analysis
-  
-  // Metadata
-  releaseDate: timestamp("release_date"),
-  importDate: timestamp("import_date"),
-  
-  // Objects included (for AI documentation)
-  includedObjects: text("included_objects").array().default([]), // List of SAP objects in transport
-  
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// AI-generated intervention documentation
-export const interventionDocumentStatusEnum = pgEnum("intervention_document_status", ["draft", "pending_review", "approved", "archived"]);
-export const interventionDocumentTypeEnum = pgEnum("intervention_document_type", ["transport_analysis", "system_configuration", "troubleshooting", "development", "custom"]);
-
-export const interventionDocuments = pgTable("intervention_documents", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id").references(() => users.id).notNull(),
-  projectId: uuid("project_id").references(() => projects.id),
-  taskId: uuid("task_id").references(() => tasks.id),
-  sapSystemId: uuid("sap_system_id").references(() => sapSystems.id),
-  transportRequestId: uuid("transport_request_id").references(() => transportRequests.id),
-  
-  title: text("title").notNull(),
-  type: interventionDocumentTypeEnum("type").default("transport_analysis").notNull(),
-  status: interventionDocumentStatusEnum("status").default("draft").notNull(),
-  
-  // AI-generated content
-  aiGeneratedContent: text("ai_generated_content").notNull(), // Main AI-generated documentation
-  aiConfidenceScore: decimal("ai_confidence_score", { precision: 3, scale: 2 }), // 0.00-1.00
-  aiModel: text("ai_model").default("gpt-5").notNull(), // AI model used for generation
-  
-  // Analysis data used for generation
-  sourceFiles: text("source_files").array().default([]), // Files analyzed for generation
-  analysisPrompt: text("analysis_prompt"), // Prompt used for AI generation
-  
-  // Manual edits and reviews
-  manualEdits: text("manual_edits"), // User edits to AI content
-  reviewNotes: text("review_notes"), // Review comments
-  finalContent: text("final_content"), // Final approved content
-  
-  // Template and customization
-  templateId: text("template_id"), // If using a specific template
-  customFields: text("custom_fields"), // JSON for custom client-specific fields
-  
-  // Metadata
-  generatedAt: timestamp("generated_at").defaultNow().notNull(),
-  reviewedAt: timestamp("reviewed_at"),
-  approvedAt: timestamp("approved_at"),
-  
-  // Export and sharing
-  exportedFormats: text("exported_formats").array().default([]), // pdf, docx, html
-  sharedWithClient: boolean("shared_with_client").default(false).notNull(),
-  clientAccessUrl: text("client_access_url"), // Secure URL for client access
-  
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
 
 // Email training selections - Manual selections for algorithm training
 // ✅ MODULAR DESIGN: All selection types follow the same pattern
@@ -881,18 +759,17 @@ export const usersRelations = relations(users, ({ many }) => ({
   rateAgreements: many(rateAgreements),
   humanResources: many(humanResources),
   linkedHumanResources: many(humanResources, { relationName: "linkedUser" }),
-  sapSystems: many(sapSystems),
-  sapSystemCredentials: many(sapSystemCredentials),
   vpnConnections: many(vpnConnections),
   vpnCredentials: many(vpnCredentials),
-  transportRequests: many(transportRequests),
-  interventionDocuments: many(interventionDocuments),
+  interestAreas: many(interestAreas),
+  timeAllocationTemplates: many(timeAllocationTemplates),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
   user: one(users, { fields: [projects.userId], references: [users.id] }),
   client: one(partners, { fields: [projects.clientId], references: [partners.id] }),
   deal: one(deals, { fields: [projects.dealId], references: [deals.id] }),
+  interestArea: one(interestAreas, { fields: [projects.interestAreaId], references: [interestAreas.id] }),
   parentProject: one(projects, { fields: [projects.parentProjectId], references: [projects.id], relationName: "ProjectHierarchy" }),
   subProjects: many(projects, { relationName: "ProjectHierarchy" }),
   tasks: many(tasks),
@@ -900,9 +777,6 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   calendarEvents: many(calendarEvents),
   messages: many(messages),
   comments: many(comments),
-  sapSystems: many(sapSystems),
-  transportRequests: many(transportRequests),
-  interventionDocuments: many(interventionDocuments),
 }));
 
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
@@ -914,8 +788,6 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   timeEntries: many(timeEntries),
   messages: many(messages),
   comments: many(comments),
-  transportRequests: many(transportRequests),
-  interventionDocuments: many(interventionDocuments),
 }));
 
 export const partnersRelations = relations(partners, ({ one, many }) => ({
@@ -926,7 +798,6 @@ export const partnersRelations = relations(partners, ({ one, many }) => ({
   calendarEvents: many(calendarEvents),
   messages: many(messages),
   salesOrders: many(salesOrders),
-  sapSystems: many(sapSystems),
   vpnConnections: many(vpnConnections),
   vpnSystems: many(vpnSystems),
   contacts: many(contacts),
@@ -1040,20 +911,17 @@ export const rateAgreementsRelations = relations(rateAgreements, ({ one }) => ({
   }),
 }));
 
-// SAP System Relations
-export const sapSystemsRelations = relations(sapSystems, ({ one, many }) => ({
-  user: one(users, { fields: [sapSystems.userId], references: [users.id] }),
-  partner: one(partners, { fields: [sapSystems.partnerId], references: [partners.id] }),
-  project: one(projects, { fields: [sapSystems.projectId], references: [projects.id] }),
-  vpnConnection: one(vpnConnections, { fields: [sapSystems.vpnConnectionId], references: [vpnConnections.id] }),
-  credentials: many(sapSystemCredentials),
-  transportRequests: many(transportRequests),
-  interventionDocuments: many(interventionDocuments),
+// Interest Areas Relations
+export const interestAreasRelations = relations(interestAreas, ({ one, many }) => ({
+  user: one(users, { fields: [interestAreas.userId], references: [users.id] }),
+  organization: one(organizations, { fields: [interestAreas.organizationId], references: [organizations.id] }),
+  projects: many(projects),
 }));
 
-export const sapSystemCredentialsRelations = relations(sapSystemCredentials, ({ one }) => ({
-  user: one(users, { fields: [sapSystemCredentials.userId], references: [users.id] }),
-  sapSystem: one(sapSystems, { fields: [sapSystemCredentials.sapSystemId], references: [sapSystems.id] }),
+// Time Allocation Templates Relations
+export const timeAllocationTemplatesRelations = relations(timeAllocationTemplates, ({ one }) => ({
+  user: one(users, { fields: [timeAllocationTemplates.userId], references: [users.id] }),
+  organization: one(organizations, { fields: [timeAllocationTemplates.organizationId], references: [organizations.id] }),
 }));
 
 export const vpnSoftwareRelations = relations(vpnSoftware, ({ many }) => ({
@@ -1070,28 +938,11 @@ export const vpnConnectionsRelations = relations(vpnConnections, ({ one, many })
   user: one(users, { fields: [vpnConnections.userId], references: [users.id] }),
   partner: one(partners, { fields: [vpnConnections.partnerId], references: [partners.id] }),
   credentials: many(vpnCredentials),
-  sapSystems: many(sapSystems),
 }));
 
 export const vpnCredentialsRelations = relations(vpnCredentials, ({ one }) => ({
   user: one(users, { fields: [vpnCredentials.userId], references: [users.id] }),
   vpnConnection: one(vpnConnections, { fields: [vpnCredentials.vpnConnectionId], references: [vpnConnections.id] }),
-}));
-
-export const transportRequestsRelations = relations(transportRequests, ({ one, many }) => ({
-  user: one(users, { fields: [transportRequests.userId], references: [users.id] }),
-  sapSystem: one(sapSystems, { fields: [transportRequests.sapSystemId], references: [sapSystems.id] }),
-  project: one(projects, { fields: [transportRequests.projectId], references: [projects.id] }),
-  task: one(tasks, { fields: [transportRequests.taskId], references: [tasks.id] }),
-  interventionDocuments: many(interventionDocuments),
-}));
-
-export const interventionDocumentsRelations = relations(interventionDocuments, ({ one }) => ({
-  user: one(users, { fields: [interventionDocuments.userId], references: [users.id] }),
-  project: one(projects, { fields: [interventionDocuments.projectId], references: [projects.id] }),
-  task: one(tasks, { fields: [interventionDocuments.taskId], references: [tasks.id] }),
-  sapSystem: one(sapSystems, { fields: [interventionDocuments.sapSystemId], references: [sapSystems.id] }),
-  transportRequest: one(transportRequests, { fields: [interventionDocuments.transportRequestId], references: [transportRequests.id] }),
 }));
 
 // Insert schemas
@@ -1306,19 +1157,18 @@ export const insertHumanResourceSchema = createInsertSchema(humanResources).omit
   updatedAt: true,
 });
 
-// SAP Insert Schemas
-export const insertSapSystemSchema = createInsertSchema(sapSystems).omit({
+// Interest Areas Insert Schema
+export const insertInterestAreaSchema = createInsertSchema(interestAreas).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertSapSystemCredentialsSchema = createInsertSchema(sapSystemCredentials).omit({
+// Time Allocation Templates Insert Schema
+export const insertTimeAllocationTemplateSchema = createInsertSchema(timeAllocationTemplates).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-  lastUsed: true,
-  usageCount: true,
 });
 
 export const insertVpnConnectionSchema = createInsertSchema(vpnConnections).omit({
@@ -1345,27 +1195,6 @@ export const insertVpnCredentialsSchema = createInsertSchema(vpnCredentials).omi
   backupCodes: z.array(z.string()).optional(),
 });
 
-export const insertTransportRequestSchema = createInsertSchema(transportRequests).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  releaseDate: true,
-  importDate: true,
-}).extend({
-  includedObjects: z.array(z.string()).optional(),
-});
-
-export const insertInterventionDocumentSchema = createInsertSchema(interventionDocuments).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  generatedAt: true,
-  reviewedAt: true,
-  approvedAt: true,
-}).extend({
-  sourceFiles: z.array(z.string()).optional(),
-  exportedFormats: z.array(z.string()).optional(),
-});
 
 // System Credentials Insert Schema
 export const insertSystemCredentialsSchema = createInsertSchema(systemCredentials).omit({
@@ -1410,18 +1239,15 @@ export const insertDiscoveredVpnConfigurationSchema = createInsertSchema(discove
 export type HumanResource = typeof humanResources.$inferSelect;
 export type InsertHumanResource = z.infer<typeof insertHumanResourceSchema>;
 
-export type SapSystem = typeof sapSystems.$inferSelect;
-export type InsertSapSystem = z.infer<typeof insertSapSystemSchema>;
-export type SapSystemCredentials = typeof sapSystemCredentials.$inferSelect;
-export type InsertSapSystemCredentials = z.infer<typeof insertSapSystemCredentialsSchema>;
+export type InterestArea = typeof interestAreas.$inferSelect;
+export type InsertInterestArea = z.infer<typeof insertInterestAreaSchema>;
+export type TimeAllocationTemplate = typeof timeAllocationTemplates.$inferSelect;
+export type InsertTimeAllocationTemplate = z.infer<typeof insertTimeAllocationTemplateSchema>;
+
 export type VpnConnection = typeof vpnConnections.$inferSelect;
 export type InsertVpnConnection = z.infer<typeof insertVpnConnectionSchema>;
 export type VpnCredentials = typeof vpnCredentials.$inferSelect;
 export type InsertVpnCredentials = z.infer<typeof insertVpnCredentialsSchema>;
-export type TransportRequest = typeof transportRequests.$inferSelect;
-export type InsertTransportRequest = z.infer<typeof insertTransportRequestSchema>;
-export type InterventionDocument = typeof interventionDocuments.$inferSelect;
-export type InsertInterventionDocument = z.infer<typeof insertInterventionDocumentSchema>;
 export type SystemCredentials = typeof systemCredentials.$inferSelect;
 export type InsertSystemCredentials = z.infer<typeof insertSystemCredentialsSchema>;
 export type VpnSoftware = typeof vpnSoftware.$inferSelect;
@@ -1620,10 +1446,11 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
   messages: many(messages),
   messageLinks: many(messageLinks),
   salesOrders: many(salesOrders),
-  sapSystems: many(sapSystems),
   vpnConnections: many(vpnConnections),
   organizationDomains: many(organizationDomains),
   emailConfigs: many(emailConfigs),
+  interestAreas: many(interestAreas),
+  timeAllocationTemplates: many(timeAllocationTemplates),
 }));
 
 // Relations for organization domains
