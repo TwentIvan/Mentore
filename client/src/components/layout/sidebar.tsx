@@ -21,12 +21,6 @@ const getDefaultNavigation = (t: any) => [
   { id: "8", name: t("nav.humanResources"), href: "/human-resources", icon: Users, testId: "nav-human-resources" },
 ];
 
-// Systems group
-const getDefaultSystemsItems = (t: any) => [
-  { id: "s2", name: t("nav.vpnConnections"), href: "/vpn-connections", icon: Wifi, testId: "nav-vpn-connections" },
-  { id: "s3", name: t("nav.systemCredentials"), href: "/system-credentials", icon: Key, testId: "nav-system-credentials" },
-];
-
 const getDefaultTimeManagementItems = (t: any) => [
   { id: "t0", name: t("nav.timePlanner"), href: "/time-planner", icon: Calendar, testId: "nav-time-planner" },
   { id: "t1", name: t("nav.interestAreas"), href: "/interest-areas", icon: Tag, testId: "nav-interest-areas" },
@@ -36,7 +30,6 @@ const getDefaultTimeManagementItems = (t: any) => [
 
 // Parent sections
 const getDefaultParentItems = (t: any) => [
-  { id: "p1", name: t("nav.systems"), icon: Shield, testId: "nav-systems", type: "systems" },
   { id: "p2", name: t("nav.timeManagement"), icon: Clock, testId: "nav-time-management", type: "timeManagement" },
 ];
 
@@ -142,31 +135,20 @@ export default function Sidebar() {
   const { user, logoutMutation } = useAuth();
   const { t } = useTranslation();
   const navigation = getDefaultNavigation(t);
-  const systemsItems = getDefaultSystemsItems(t);
   const timeManagementItems = getDefaultTimeManagementItems(t);
   const parentItems = getDefaultParentItems(t);
   const [isTimeManagementOpen, setIsTimeManagementOpen] = useState(false);
-  const [isSystemsOpen, setIsSystemsOpen] = useState(false);
   
   // Auto-open parent menus when child is active
-  const hasActiveSystemsChild = systemsItems.some((item: any) => location === item.href);
   const hasActiveTimeChild = timeManagementItems.some((item: any) => location === item.href);
   
   // Keep menus open if they have active children
-  const shouldSystemsBeOpen = isSystemsOpen || hasActiveSystemsChild;
   const shouldTimeManagementBeOpen = isTimeManagementOpen || hasActiveTimeChild;
   // Semplice funzione di toggle - chiude solo se non ci sono figli attivi
   const handleToggle = (type: string) => {
     console.log('Executing toggle for:', type);
     
-    if (type === 'systems') {
-      // Non chiudere se c'è un figlio attivo
-      if (hasActiveSystemsChild && isSystemsOpen) {
-        console.log('Preventing systems close - has active child');
-        return;
-      }
-      setIsSystemsOpen(!isSystemsOpen);
-    } else if (type === 'timeManagement') {
+    if (type === 'timeManagement') {
       // Non chiudere se c'è un figlio attivo
       if (hasActiveTimeChild && isTimeManagementOpen) {
         console.log('Preventing timeManagement close - has active child');
@@ -203,15 +185,11 @@ export default function Sidebar() {
           );
         })}
         
-        {/* Parent Sections (Systems & Time Management) */}
+        {/* Parent Sections (Time Management) */}
         <div>
           {parentItems.map((item: any) => {
-            const isSystemsItem = item.type === 'systems';
-            const isTimeItem = item.type === 'timeManagement';
-            const isOpen = isSystemsItem ? shouldSystemsBeOpen : (isTimeItem ? shouldTimeManagementBeOpen : false);
-            
-            // Check if any child is active  
-            const hasActiveChild = isSystemsItem ? hasActiveSystemsChild : hasActiveTimeChild;
+            const isOpen = item.type === 'timeManagement' ? shouldTimeManagementBeOpen : false;
+            const hasActiveChild = hasActiveTimeChild;
             
             return (
               <div key={item.id}>
@@ -223,7 +201,7 @@ export default function Sidebar() {
                   children={
                     isOpen && (
                       <div className="space-y-1">
-                        {(isSystemsItem ? systemsItems : timeManagementItems).map((subItem: any) => {
+                        {timeManagementItems.map((subItem: any) => {
                           const isActive = location === subItem.href;
                           return (
                             <SubNavItem 
