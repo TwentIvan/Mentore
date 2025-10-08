@@ -1,0 +1,313 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Sidebar from "@/components/layout/sidebar";
+import Header from "@/components/layout/header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Save, Plus, FileText, Sparkles } from "lucide-react";
+import { InteractiveTimeAllocationPieChart, type TimeAllocation } from "@/components/planner/interactive-time-allocation-pie-chart";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useOrganization } from "@/contexts/organization-context";
+import type { InterestArea, TimeAllocationTemplate } from "@shared/schema";
+
+export default function TimePlannerPage() {
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [currentAllocations, setCurrentAllocations] = useState<TimeAllocation[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { currentOrganizationId } = useOrganization();
+
+  // Fetch interest areas
+  const { data: interestAreas = [], isLoading: isLoadingAreas } = useQuery<InterestArea[]>({
+    queryKey: ["/api/interest-areas", currentOrganizationId],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!currentOrganizationId,
+  });
+
+  // Fetch templates
+  const { data: templates = [], isLoading: isLoadingTemplates } = useQuery<TimeAllocationTemplate[]>({
+    queryKey: ["/api/time-allocation-templates", currentOrganizationId],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!currentOrganizationId,
+  });
+
+  // Save template mutation
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string; allocations: TimeAllocation[] }) => {
+      const res = await apiRequest("POST", "/api/time-allocation-templates", {
+        name: data.name,
+        description: data.description,
+        templateData: data.allocations,
+        isActive: true,
+        userId: "current", // Will be set by backend
+        organizationId: currentOrganizationId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/time-allocation-templates", currentOrganizationId] });
+      setShowSaveTemplateDialog(false);
+      setTemplateName("");
+      setTemplateDescription("");
+      toast({
+        title: "Template salvato",
+        description: "Il template di allocazione tempo è stato salvato con successo",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Errore",
+        description: "Impossibile salvare il template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSaveTemplate = () => {
+    if (!templateName.trim()) {
+      toast({
+        title: "Nome richiesto",
+        description: "Inserisci un nome per il template",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const total = currentAllocations.reduce((sum, item) => sum + item.percentage, 0);
+    if (Math.abs(total - 100) >= 0.01) {
+      toast({
+        title: "Allocazione non valida",
+        description: "La somma delle percentuali deve essere 100%",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    saveTemplateMutation.mutate({
+      name: templateName,
+      description: templateDescription,
+      allocations: currentAllocations,
+    });
+  };
+
+  const loadTemplate = (template: TimeAllocationTemplate) => {
+    setSelectedTemplateId(template.id);
+    const allocations = (template.allocations as TimeAllocation[]) || [];
+    setCurrentAllocations(allocations);
+  };
+
+  // Initialize with interest areas if available
+  const initializeFromInterestAreas = () => {
+    if (interestAreas.length === 0) {
+      toast({
+        title: "Nessuna area di interesse",
+        description: "Crea prima delle aree di interesse per utilizzare questa funzione",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const equalPercentage = 100 / interestAreas.length;
+    const allocations: TimeAllocation[] = interestAreas.map((area, index) => ({
+      id: area.id,
+      name: area.name,
+      percentage: equalPercentage,
+      color: area.color || `hsl(${(index * 360) / interestAreas.length}, 70%, 60%)`,
+    }));
+    
+    setCurrentAllocations(allocations);
+    setSelectedTemplateId(null);
+  };
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 overflow-auto">
+        <Header
+          title="Time Planner"
+          subtitle="Pianifica e visualizza l'allocazione del tuo tempo"
+          onNewClick={() => setShowSaveTemplateDialog(true)}
+        />
+
+        <div className="p-6 space-y-6">
+          <Tabs defaultValue="planner" className="w-full" data-testid="tabs-time-planner">
+            <TabsList className="grid w-full grid-cols-2 max-w-md" data-testid="tabslist-planner">
+              <TabsTrigger value="planner" data-testid="tab-planner">Planner</TabsTrigger>
+              <TabsTrigger value="templates" data-testid="tab-templates">Templates</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="planner" className="space-y-6" data-testid="tabcontent-planner">
+              {/* Quick Actions */}
+              <Card data-testid="card-quick-actions">
+                <CardHeader>
+                  <CardTitle data-testid="text-quick-actions-title">Quick Actions</CardTitle>
+                  <CardDescription data-testid="text-quick-actions-description">
+                    Inizia rapidamente con template o aree di interesse
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex gap-3 flex-wrap">
+                  <Button
+                    variant="outline"
+                    onClick={initializeFromInterestAreas}
+                    disabled={isLoadingAreas || interestAreas.length === 0}
+                    data-testid="button-init-from-areas"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Usa Aree di Interesse
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentAllocations([])}
+                    data-testid="button-start-blank"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Inizia da Zero
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Interactive Pie Chart */}
+              <InteractiveTimeAllocationPieChart
+                initialAllocations={currentAllocations}
+                onAllocationsChange={setCurrentAllocations}
+                editable={true}
+              />
+
+              {/* Save Actions */}
+              <Card data-testid="card-save-actions">
+                <CardContent className="pt-6">
+                  <div className="flex gap-3 justify-end">
+                    <Button
+                      onClick={() => setShowSaveTemplateDialog(true)}
+                      disabled={currentAllocations.length === 0}
+                      data-testid="button-save-template"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Salva come Template
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="templates" className="space-y-4" data-testid="tabcontent-templates">
+              {isLoadingTemplates ? (
+                <Card data-testid="card-loading">
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground" data-testid="text-loading">Caricamento templates...</p>
+                  </CardContent>
+                </Card>
+              ) : templates.length === 0 ? (
+                <Card data-testid="card-no-templates">
+                  <CardContent className="py-12 text-center">
+                    <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2" data-testid="text-no-templates-title">Nessun template</h3>
+                    <p className="text-muted-foreground mb-4" data-testid="text-no-templates-description">
+                      Crea il tuo primo template di allocazione tempo
+                    </p>
+                    <Button onClick={() => setShowSaveTemplateDialog(true)} data-testid="button-create-first-template">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Crea Template
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3" data-testid="grid-templates">
+                  {templates.map((template) => (
+                    <Card
+                      key={template.id}
+                      className={`cursor-pointer hover:border-primary transition-colors ${
+                        selectedTemplateId === template.id ? "border-primary" : ""
+                      }`}
+                      onClick={() => loadTemplate(template)}
+                      data-testid={`card-template-${template.id}`}
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-base" data-testid={`text-template-name-${template.id}`}>
+                          {template.name}
+                        </CardTitle>
+                        {template.description && (
+                          <CardDescription data-testid={`text-template-description-${template.id}`}>
+                            {template.description}
+                          </CardDescription>
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <InteractiveTimeAllocationPieChart
+                          initialAllocations={(template.allocations as TimeAllocation[]) || []}
+                          editable={false}
+                        />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </main>
+
+      {/* Save Template Dialog */}
+      <Dialog open={showSaveTemplateDialog} onOpenChange={setShowSaveTemplateDialog}>
+        <DialogContent data-testid="dialog-save-template">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dialog-title">Salva Template</DialogTitle>
+            <DialogDescription data-testid="text-dialog-description">
+              Salva questa allocazione come template riutilizzabile
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="template-name" data-testid="label-template-name">Nome Template</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Es: Work-Life Balance"
+                data-testid="input-template-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="template-description" data-testid="label-template-description">Descrizione (opzionale)</Label>
+              <Textarea
+                id="template-description"
+                value={templateDescription}
+                onChange={(e) => setTemplateDescription(e.target.value)}
+                placeholder="Descrivi questo template..."
+                rows={3}
+                data-testid="textarea-template-description"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowSaveTemplateDialog(false)}
+                data-testid="button-cancel-save"
+              >
+                Annulla
+              </Button>
+              <Button
+                onClick={handleSaveTemplate}
+                disabled={saveTemplateMutation.isPending}
+                data-testid="button-confirm-save"
+              >
+                {saveTemplateMutation.isPending ? "Salvataggio..." : "Salva"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

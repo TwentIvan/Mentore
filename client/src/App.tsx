@@ -28,6 +28,7 @@ import { SystemCredentialsPage } from "@/pages/system-credentials-page";
 import VPNConnectionsPage from "@/pages/vpn-connections-page";
 import EmailAccountsPage from "@/pages/email-accounts-page";
 import AccountPage from "@/pages/account-page";
+import TimePlannerPage from "@/pages/time-planner-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -47,6 +48,7 @@ function Router() {
       <ProtectedRoute path="/contacts" component={ContactsPage} />
       <ProtectedRoute path="/calendar" component={CalendarPage} />
       <ProtectedRoute path="/planning-calendar" component={GlobalCalendarPage} />
+      <ProtectedRoute path="/time-planner" component={TimePlannerPage} />
       <ProtectedRoute path="/timesheet" component={TimesheetPage} />
       <ProtectedRoute path="/timesheets" component={TimesheetsPage} />
       <ProtectedRoute path="/messages" component={MessagesPage} />

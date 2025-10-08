@@ -28,6 +28,7 @@ const getDefaultSystemsItems = (t: any) => [
 ];
 
 const getDefaultTimeManagementItems = (t: any) => [
+  { id: "t0", name: t("nav.timePlanner"), href: "/time-planner", icon: Calendar, testId: "nav-time-planner" },
   { id: "t1", name: t("nav.timeEntries"), href: "/timesheet", icon: Clock, testId: "nav-timesheet" },
   { id: "t2", name: t("nav.timesheets"), href: "/timesheets", icon: Clock, testId: "nav-timesheets" },
 ];
