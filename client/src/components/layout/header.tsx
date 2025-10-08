@@ -94,7 +94,7 @@ export default function Header({ title, subtitle, onNewClick }: HeaderProps) {
     const isHovered = buttonId === hoveredId;
     return {
       backgroundColor: 'hsl(160, 15%, 55%, 0.1)',
-      borderRadius: isHovered ? '2rem' : '50%',
+      borderRadius: isHovered ? '0.75rem' : '0.5rem',
       border: '1px solid hsl(160, 15%, 55%, 0.2)',
       width: isHovered ? 'auto' : '3.5rem',
       height: '3.5rem',
