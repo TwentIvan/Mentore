@@ -5,7 +5,7 @@ import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Code, BarChart3, FolderOpen, CheckSquare, Handshake, Building, Calendar, Clock, User, LogOut, FolderTree, Mail, DollarSign, Users, FileText, Server, Key, Shield, Wifi, Radar, Plus, Minus, Settings, Sparkles, Contact, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
-import newLogo from "@assets/thu solo logo_1757017376100.jpg";
+import logoSymbol from "@assets/ChatGPT Image 8 ott 2025, 11_45_12_1759920990895.png";
 import ImageContainer from "@/components/ui/image-container";
 
 // Main navigation (Organizations già rimosso dalla lista principale)  
@@ -47,8 +47,8 @@ function NavItem({ item, isActive }: { item: any; isActive: boolean }) {
       <div 
         className="flex items-center px-3 py-2 rounded-full nav-box transition-colors flex-1" 
         style={{ 
-          backgroundColor: isActive ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.1)', 
-          border: '1px solid rgba(59, 130, 246, 0.2)', 
+          backgroundColor: isActive ? 'hsl(160, 15%, 55%, 0.3)' : 'hsl(160, 15%, 55%, 0.1)', 
+          border: '1px solid hsl(160, 15%, 55%, 0.2)', 
           minWidth: '240px', 
           maxWidth: '240px' 
         }}
@@ -73,8 +73,8 @@ function ParentItem({ item, children, isOpen, onToggle, hasActiveChild = false }
         <div 
           className="flex items-center px-3 py-2 rounded-full nav-box transition-colors flex-1 pointer-events-none" 
           style={{ 
-            backgroundColor: hasActiveChild ? 'rgba(59, 130, 246, 0.25)' : 'rgba(59, 130, 246, 0.1)', 
-            border: '1px solid rgba(59, 130, 246, 0.2)', 
+            backgroundColor: hasActiveChild ? 'hsl(160, 15%, 55%, 0.25)' : 'hsl(160, 15%, 55%, 0.1)', 
+            border: '1px solid hsl(160, 15%, 55%, 0.2)', 
             minWidth: '240px', 
             maxWidth: '240px' 
           }}
@@ -84,12 +84,12 @@ function ParentItem({ item, children, isOpen, onToggle, hasActiveChild = false }
           <button 
             onClick={onToggle}
             className="ml-2 w-6 h-6 rounded-full border border-current hover:bg-white/20 transition-colors flex items-center justify-center pointer-events-auto"
-            style={{ borderColor: 'rgba(59, 130, 246, 0.9)', color: 'rgba(59, 130, 246, 0.9)' }}
+            style={{ borderColor: 'hsl(160, 15%, 55%)', color: 'hsl(160, 15%, 55%)' }}
           >
             {isOpen ? (
-              <Minus className="h-3 w-3" style={{ color: 'rgba(59, 130, 246, 0.9)' }} />
+              <Minus className="h-3 w-3" style={{ color: 'hsl(160, 15%, 55%)' }} />
             ) : (
-              <Plus className="h-3 w-3" style={{ color: 'rgba(59, 130, 246, 0.9)' }} />
+              <Plus className="h-3 w-3" style={{ color: 'hsl(160, 15%, 55%)' }} />
             )}
           </button>
         </div>
@@ -110,8 +110,8 @@ function SubNavItem({ item, isActive, onChildClick }: { item: any; isActive: boo
         <button 
           className="flex items-center px-3 py-1 rounded-full nav-box transition-colors flex-1 cursor-pointer border-0 bg-transparent" 
           style={{ 
-            backgroundColor: isActive ? 'rgba(59, 130, 246, 0.25)' : 'rgba(59, 130, 246, 0.08)', 
-            border: '1px solid rgba(59, 130, 246, 0.15)', 
+            backgroundColor: isActive ? 'hsl(160, 15%, 55%, 0.25)' : 'hsl(160, 15%, 55%, 0.08)', 
+            border: '1px solid hsl(160, 15%, 55%, 0.15)', 
             minWidth: '220px', 
             maxWidth: '220px' 
           }}
@@ -164,11 +164,11 @@ export default function Sidebar() {
       <div className="p-6 border-b border-border">
         <div className="flex justify-center">
           <ImageContainer
-            src={newLogo}
-            alt="App Logo"
+            src={logoSymbol}
+            alt="Mentore"
             fallbackType="logo"
             size="custom"
-            containerClassName="w-64 h-44 bg-transparent"
+            containerClassName="w-32 h-32 bg-transparent"
             className="object-contain"
             data-testid="img-app-logo"
           />

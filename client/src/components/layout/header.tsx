@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useOrganization } from "@/contexts/organization-context";
 import { useTranslation, Language } from "@/lib/i18n";
+import logoPath from "@assets/ChatGPT Image 8 ott 2025, 12_51_07_1759920990896.png";
 
 interface HeaderProps {
   title: string;
@@ -88,13 +89,13 @@ export default function Header({ title, subtitle, onNewClick }: HeaderProps) {
     return 'translateX(0)';
   };
 
-  // Helper function per lo stile di ogni button
+  // Helper function per lo stile di ogni button - con colori Mentore
   const getButtonStyle = (buttonId: string, hoveredId: string | null) => {
     const isHovered = buttonId === hoveredId;
     return {
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      backgroundColor: 'hsl(160, 15%, 55%, 0.1)',
       borderRadius: isHovered ? '2rem' : '50%',
-      border: '1px solid rgba(59, 130, 246, 0.2)',
+      border: '1px solid hsl(160, 15%, 55%, 0.2)',
       width: isHovered ? 'auto' : '3.5rem',
       height: '3.5rem',
       minWidth: isHovered ? '200px' : '3.5rem',
@@ -110,84 +111,31 @@ export default function Header({ title, subtitle, onNewClick }: HeaderProps) {
   };
 
   return (
-    <header className="bg-card border-b border-border px-6 py-4 sticky top-0 z-10">
+    <header className="bg-card border-b border-border px-6 py-3 sticky top-0 z-10">
       <div className="flex items-center justify-between">
-        <div className="flex items-stretch space-x-1">
-          {/* Area Title with Icon */}
-          <div 
-            className="flex items-center space-x-3 px-4 py-2 shadow-sm"
-            style={{ 
-              background: 'linear-gradient(to right, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.8))',
-              borderRadius: '3rem 0 0 3rem',
-              border: '1px solid rgba(59, 130, 246, 0.2)'
-            }}
-          >
-            <AreaIcon className="text-muted-foreground flex-shrink-0" style={{ width: '2rem', height: '2rem' }} />
+        <div className="flex items-center space-x-6">
+          {/* Logo Mentore */}
+          <Link href="/">
+            <img 
+              src={logoPath} 
+              alt="Mentore" 
+              className="h-12 cursor-pointer transition-opacity hover:opacity-80"
+            />
+          </Link>
+          
+          {/* Area Title with Icon - più piccolo */}
+          <div className="flex items-center space-x-2">
+            <AreaIcon className="text-muted-foreground flex-shrink-0" style={{ width: '1.25rem', height: '1.25rem' }} />
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold truncate text-muted-foreground" data-testid="text-page-title">
+              <h2 className="text-sm font-medium truncate text-muted-foreground" data-testid="text-page-title">
                 {title}
               </h2>
-              <p className="text-sm text-muted-foreground truncate" data-testid="text-page-subtitle">
+              <p className="text-xs text-muted-foreground truncate" data-testid="text-page-subtitle">
                 {subtitle}
               </p>
             </div>
           </div>
           
-          {/* Search Box - espandibile */}
-          <div 
-            className="flex items-center px-4 py-2 shadow-sm cursor-pointer transition-all duration-300"
-            style={{ 
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              borderRadius: '0 3rem 3rem 0',
-              border: '1px solid rgba(59, 130, 246, 0.2)',
-              width: isSearchOpen ? '300px' : 'auto',
-              minWidth: isSearchOpen ? '300px' : 'auto'
-            }}
-            onClick={() => !isSearchOpen && setIsSearchOpen(true)}
-            data-testid="button-search"
-          >
-            {!isSearchOpen ? (
-              <>
-                <Search className="h-8 w-8 text-muted-foreground flex-shrink-0" style={{ width: '2.25rem', height: '2.25rem', transform: 'scaleX(-1) translateX(-0.5rem)' }} />
-                <div className="min-w-0 opacity-0 pointer-events-none">
-                  <h2 className="text-lg font-semibold truncate">A</h2>
-                  <p className="text-sm truncate">B</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <button
-                  className="w-8 h-8 mr-3 rounded hover:bg-primary/10 text-foreground transition-colors flex items-center justify-center"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSearchQuery("");
-                    setIsSearchOpen(false);
-                  }}
-                >
-                  <X className="h-8 w-8 text-muted-foreground" />
-                </button>
-                <input
-                  type="text"
-                  placeholder={`Cerca in ${title}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 border-0 bg-transparent focus:ring-0 focus:outline-0 text-sm px-0 text-foreground placeholder:text-muted-foreground"
-                  data-testid="input-search"
-                  autoFocus
-                  onBlur={() => !searchQuery && setIsSearchOpen(false)}
-                />
-                <button
-                  className="w-8 h-8 ml-2 rounded hover:bg-primary/10 text-foreground transition-colors flex items-center justify-center bg-primary/10 hover:bg-primary/20"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // TODO: implementare ricerca globale
-                  }}
-                >
-                  <Globe className="h-8 w-8 text-muted-foreground" />
-                </button>
-              </>
-            )}
-          </div>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -258,7 +206,7 @@ export default function Header({ title, subtitle, onNewClick }: HeaderProps) {
           
           {/* User & Organization Box with Switch */}
           {user && (
-            <div className="relative rounded-full px-4 py-2 flex items-center space-x-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+            <div className="relative rounded-full px-4 py-2 flex items-center space-x-4" style={{ backgroundColor: 'hsl(160, 15%, 55%, 0.1)', border: '1px solid hsl(160, 15%, 55%, 0.2)' }}>
               {/* Language Selector - Bandiera Flat */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

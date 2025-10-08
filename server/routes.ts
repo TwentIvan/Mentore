@@ -4645,10 +4645,8 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
       userId: req.user!.id,
       organizationId
     };
-    console.log('[INTEREST-AREA] Creating with data:', dataToValidate);
     const result = insertInterestAreaSchema.safeParse(dataToValidate);
     if (!result.success) {
-      console.error('[INTEREST-AREA] Validation error:', result.error.message);
       return res.status(400).send(result.error.message);
     }
     const area = await storage.createInterestArea(result.data);
