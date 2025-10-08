@@ -4639,7 +4639,12 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
 
   app.post("/api/interest-areas", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const result = insertInterestAreaSchema.safeParse(req.body);
+    const organizationId = getOrganizationId(req);
+    const result = insertInterestAreaSchema.safeParse({
+      ...req.body,
+      userId: req.user!.id,
+      organizationId
+    });
     if (!result.success) return res.status(400).send(result.error.message);
     const area = await storage.createInterestArea(result.data);
     res.status(201).json(area);
@@ -4676,7 +4681,12 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
 
   app.post("/api/time-allocation-templates", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const result = insertTimeAllocationTemplateSchema.safeParse(req.body);
+    const organizationId = getOrganizationId(req);
+    const result = insertTimeAllocationTemplateSchema.safeParse({
+      ...req.body,
+      userId: req.user!.id,
+      organizationId
+    });
     if (!result.success) return res.status(400).send(result.error.message);
     const template = await storage.createTimeAllocationTemplate(result.data);
     res.status(201).json(template);
