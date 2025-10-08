@@ -163,13 +163,10 @@ export default function Sidebar() {
       {/* Logo and Brand */}
       <div className="p-6 border-b border-border">
         <div className="flex justify-center">
-          <ImageContainer
+          <img
             src={logoSymbol}
             alt="Mentore"
-            fallbackType="logo"
-            size="custom"
-            containerClassName="w-32 h-32 bg-transparent"
-            className="object-contain"
+            className="w-32 h-32 object-contain"
             data-testid="img-app-logo"
           />
         </div>
