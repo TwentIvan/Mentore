@@ -4640,12 +4640,17 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
   app.post("/api/interest-areas", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const organizationId = getOrganizationId(req);
-    const result = insertInterestAreaSchema.safeParse({
+    const dataToValidate = {
       ...req.body,
       userId: req.user!.id,
       organizationId
-    });
-    if (!result.success) return res.status(400).send(result.error.message);
+    };
+    console.log('[INTEREST-AREA] Creating with data:', dataToValidate);
+    const result = insertInterestAreaSchema.safeParse(dataToValidate);
+    if (!result.success) {
+      console.error('[INTEREST-AREA] Validation error:', result.error.message);
+      return res.status(400).send(result.error.message);
+    }
     const area = await storage.createInterestArea(result.data);
     res.status(201).json(area);
   });
