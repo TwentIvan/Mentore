@@ -5,7 +5,7 @@ import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Code, BarChart3, FolderOpen, CheckSquare, Handshake, Building, Calendar, Clock, User, LogOut, FolderTree, Mail, DollarSign, Users, FileText, Server, Key, Shield, Wifi, Radar, Plus, Minus, Settings, Sparkles, Contact, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logoSymbol from "@assets/ChatGPT Image 8 ott 2025, 11_45_12_1759920990895.png";
+import logoSymbol from "@assets/ChatGPT Image 8 ott 2025, 11_45_12_1759921521136.png";
 import ImageContainer from "@/components/ui/image-container";
 
 // Main navigation (Organizations già rimosso dalla lista principale)  
