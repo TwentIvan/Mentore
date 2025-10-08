@@ -3,7 +3,7 @@ import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Code, BarChart3, FolderOpen, CheckSquare, Handshake, Building, Calendar, Clock, User, LogOut, FolderTree, Mail, DollarSign, Users, FileText, Server, Key, Shield, Wifi, Radar, Plus, Minus, Settings, Sparkles, Contact } from "lucide-react";
+import { Code, BarChart3, FolderOpen, CheckSquare, Handshake, Building, Calendar, Clock, User, LogOut, FolderTree, Mail, DollarSign, Users, FileText, Server, Key, Shield, Wifi, Radar, Plus, Minus, Settings, Sparkles, Contact, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import newLogo from "@assets/thu solo logo_1757017376100.jpg";
 import ImageContainer from "@/components/ui/image-container";
@@ -29,8 +29,9 @@ const getDefaultSystemsItems = (t: any) => [
 
 const getDefaultTimeManagementItems = (t: any) => [
   { id: "t0", name: t("nav.timePlanner"), href: "/time-planner", icon: Calendar, testId: "nav-time-planner" },
-  { id: "t1", name: t("nav.timeEntries"), href: "/timesheet", icon: Clock, testId: "nav-timesheet" },
-  { id: "t2", name: t("nav.timesheets"), href: "/timesheets", icon: Clock, testId: "nav-timesheets" },
+  { id: "t1", name: t("nav.interestAreas"), href: "/interest-areas", icon: Tag, testId: "nav-interest-areas" },
+  { id: "t2", name: t("nav.timeEntries"), href: "/timesheet", icon: Clock, testId: "nav-timesheet" },
+  { id: "t3", name: t("nav.timesheets"), href: "/timesheets", icon: Clock, testId: "nav-timesheets" },
 ];
 
 // Parent sections
