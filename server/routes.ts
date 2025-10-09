@@ -1779,6 +1779,12 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
   });
 
   // Planning Windows
+  app.get("/api/planning-windows", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const windows = await storage.getAllPlanningWindowsForUser(req.user!.id);
+    res.json(windows);
+  });
+
   app.get("/api/planning-windows/user", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const windows = await storage.getAllPlanningWindowsForUser(req.user!.id);
