@@ -45,7 +45,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     if (!planningWindowsWithProject) return new Map<string, number>();
     
     const hierarchy = new Map<string, number>();
-    const projects = Array.from(new Set(planningWindowsWithProject.map(w => w.project)));
+    const projects = Array.from(new Set(planningWindowsWithProject.map(w => w.project).filter(p => p !== null)));
     
     const calculateDepth = (project: Project, visited = new Set<string>()): number => {
       if (visited.has(project.id)) return 0;
@@ -100,7 +100,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     planningWindowsWithProject.forEach(({ project, ...window }) => {
       const windowStart = new Date(window.startDate);
       const windowEnd = new Date(window.endDate);
-      const projectLevel = projectHierarchy.get(project.id) || 0;
+      const projectLevel = project ? (projectHierarchy.get(project.id) || 0) : 0;
       
       if (window.recurrenceType === 'none') {
         if (isWithinInterval(windowStart, { start: calendarStart, end: calendarEnd }) ||
@@ -109,7 +109,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
           
           // Per i progetti padre, creiamo istanze per ogni giorno nel range della planning window
           // Questo assicura che il box padre sia continuo anche quando ci sono gap tra i progetti figlio
-          const hasChildProjects = planningWindowsWithProject.some(w => w.project.parentProjectId === project.id);
+          const hasChildProjects = project ? planningWindowsWithProject.some(w => w.project?.parentProjectId === project.id) : false;
           
           if (hasChildProjects || projectLevel === 0) {
             // Per progetti padre o progetti di primo livello, creiamo istanze per ogni giorno
@@ -287,12 +287,15 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
   };
 
   // Funzione per trovare il colore del progetto padre nella gerarchia
-  const getProjectHierarchyColor = (project: Project): string => {
+  const getProjectHierarchyColor = (project: Project | null): string => {
+    if (!project) return '#3B82F6'; // Default color for null projects
+    
     // Se il progetto ha un padre, cerca ricorsivamente il colore del progetto root
     if (project.parentProjectId && planningWindowsWithProject) {
       const parentProject = planningWindowsWithProject
         .map(pwp => pwp.project)
-        .find((p: Project) => p.id === project.parentProjectId);
+        .filter((p): p is Project => p !== null)
+        .find((p) => p.id === project.parentProjectId);
       if (parentProject) {
         return getProjectHierarchyColor(parentProject);
       }
@@ -322,7 +325,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     const { start: calendarStart, end: calendarEnd } = getDateRange();
     const periods: Array<{
       window: PlanningWindow;
-      project: Project;
+      project: Project | null;
       level: number;
       startDate: Date;
       endDate: Date;
@@ -331,12 +334,14 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     }> = [];
     
     planningWindowsWithProject.forEach(({ project, ...window }) => {
+      if (!project) return; // Skip planning windows without a project
+      
       const windowStart = new Date(window.startDate);
       const windowEnd = new Date(window.endDate);
       const projectLevel = projectHierarchy.get(project.id) || 0;
       
       // Solo progetti padre o senza padre
-      const hasChildProjects = planningWindowsWithProject.some(w => w.project.parentProjectId === project.id);
+      const hasChildProjects = planningWindowsWithProject.some(w => w.project?.parentProjectId === project.id);
       if (hasChildProjects || !project.parentProjectId) {
         // Intersect with calendar range
         const rangeStart = max([windowStart, calendarStart]);
@@ -449,7 +454,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
             >
               <div 
                 className={`hover:opacity-80 text-xs p-1 rounded border h-full overflow-hidden flex flex-col justify-between ${hasChildren ? 'border-2 border-dashed' : ''}`}
-                style={getProjectColorStyle(getProjectHierarchyColor(instance.project), level)}
+                style={instance.project ? getProjectColorStyle(getProjectHierarchyColor(instance.project), level) : { backgroundColor: '#E5E7EB', borderColor: '#D1D5DB', color: '#374151' }}
               >
                 <div>
                   <div className="font-medium truncate">
@@ -460,7 +465,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                   </div>
                 </div>
                 <div className="text-[9px] opacity-75 truncate">
-                  {instance.project.name}
+                  {instance.project?.name || 'Nessun progetto'}
                   {level > 0 && (
                     <span className="ml-1">
                       {'→'.repeat(level)}
@@ -642,7 +647,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                             {instance.startTime} - {instance.endTime}
                           </div>
                           <div className="text-[9px] opacity-75 truncate">
-                            {instance.project.name}
+                            {instance.project?.name || 'Nessun progetto'}
                             {instance.level > 0 && <span className="ml-1">{'→'.repeat(instance.level)}</span>}
                           </div>
                         </div>
@@ -746,14 +751,14 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                         {instance.startTime} - {instance.endTime}
                       </div>
                       <div className="text-sm opacity-75 mt-1">
-                        {instance.project.name}
+                        {instance.project?.name || 'Nessun progetto'}
                         {instance.level > 0 && (
                           <span className="ml-2">
                             {'→'.repeat(instance.level)}
                           </span>
                         )}
                       </div>
-                      {instance.project.description && height > 120 && (
+                      {instance.project?.description && height > 120 && (
                         <div className="text-xs opacity-60 mt-2 flex-1 overflow-hidden">
                           {instance.project.description}
                         </div>
