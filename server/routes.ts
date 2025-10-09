@@ -1823,7 +1823,8 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
         recurrenceEnd: req.body.recurrenceEnd ? new Date(req.body.recurrenceEnd) : null,
         notes: req.body.notes || null
       });
-      const window = await storage.createPlanningWindow(windowData);
+      // Add userId from authenticated user
+      const window = await storage.createPlanningWindow({ ...windowData, userId: req.user!.id });
       res.status(201).json(window);
     } catch (error) {
       console.error("Planning window creation error:", error);
