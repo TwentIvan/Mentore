@@ -133,7 +133,7 @@ export interface IStorage {
   deleteCalendarEvent(id: string, userId: string): Promise<boolean>;
 
   // Planning Windows
-  getAllPlanningWindowsForUser(userId: string): Promise<(PlanningWindow & { project: Project })[]>;
+  getAllPlanningWindowsForUser(userId: string): Promise<(PlanningWindow & { project: Project | null })[]>;
   getPlanningWindows(projectId: string, userId: string): Promise<PlanningWindow[]>;
   getPlanningWindow(id: string, userId: string): Promise<PlanningWindow | undefined>;
   createPlanningWindow(window: InsertPlanningWindow): Promise<PlanningWindow>;
@@ -1484,17 +1484,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Planning Windows
-  async getAllPlanningWindowsForUser(userId: string): Promise<(PlanningWindow & { project: Project })[]> {
+  async getAllPlanningWindowsForUser(userId: string): Promise<(PlanningWindow & { project: Project | null })[]> {
     const result = await db
       .select()
       .from(planningWindows)
-      .innerJoin(projects, eq(projects.id, planningWindows.projectId))
-      .where(eq(projects.userId, userId))
+      .leftJoin(projects, eq(projects.id, planningWindows.projectId))
+      .where(eq(planningWindows.userId, userId))
       .orderBy(asc(planningWindows.startDate));
     
     return result.map(row => ({
       ...row.planning_windows,
-      project: row.projects
+      project: row.projects || null
     }));
   }
 
