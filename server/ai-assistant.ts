@@ -75,7 +75,52 @@ Scegli colori distintivi e piacevoli per ogni area.`;
 }
 
 /**
- * Suggerisce come distribuire il tempo tra le aree di interesse
+ * Suggerisce distribuzione tempo rapida senza intervista, basata su best practices
+ */
+export async function suggestQuickTimeAllocation(
+  areas: Array<{ id: string; name: string; description: string }>
+): Promise<TimeAllocationSuggestion[]> {
+  const systemPrompt = `Sei un assistente AI esperto di gestione del tempo e bilanciamento vita-lavoro.
+Il tuo compito è suggerire una distribuzione percentuale del tempo tra diverse aree di interesse, basandoti su best practices e principi di produttività.
+
+IMPORTANTE:
+1. La distribuzione deve essere RAGIONATA, non equa
+2. Considera l'importanza relativa di ogni area nella vita moderna
+3. Usa principi come work-life balance, regola 80/20, ecc.
+4. Le percentuali devono sommare esattamente a 100
+5. Rispondi SEMPRE in formato JSON con questa struttura:
+{
+  "allocations": [
+    {
+      "areaId": "id esatto dell'area",
+      "percentage": numero (0-100),
+      "reasoning": "Breve spiegazione della percentuale assegnata"
+    }
+  ]
+}
+
+Sii realistico e bilanciato nelle tue allocazioni.`;
+
+  const areasDescription = areas.map(a => `- ID: ${a.id} | Nome: ${a.name} | Descrizione: ${a.description}`).join('\n');
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { 
+        role: "user", 
+        content: `Suggerisci una distribuzione del tempo ragionata per queste aree:\n${areasDescription}\n\nIMPORTANTE: Usa esattamente questi ID nelle tue allocazioni.` 
+      }
+    ] as any,
+    response_format: { type: "json_object" },
+  });
+
+  const result = JSON.parse(response.choices[0].message.content || "{}");
+  return result.allocations || [];
+}
+
+/**
+ * Suggerisce come distribuire il tempo tra le aree di interesse (conversazionale)
  */
 export async function suggestTimeAllocation(
   areas: Array<{ id: string; name: string; description: string }>,

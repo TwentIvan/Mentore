@@ -24,7 +24,7 @@ import {
 } from "@shared/schema";
 import { aiService } from "./ai-service";
 import { initializeEmailService, getEmailService } from "./imap-service";
-import { suggestGenericInterestAreas, suggestTimeAllocation, type ConversationMessage } from "./ai-assistant";
+import { suggestGenericInterestAreas, suggestQuickTimeAllocation, suggestTimeAllocation, type ConversationMessage } from "./ai-assistant";
 import { AuditService } from "./audit-service";
 import { MessageLogService } from "./message-log-service";
 import { gmailService } from "./gmail-service";
@@ -4681,7 +4681,26 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     }
   });
 
-  // AI Assistant - Time Allocation Suggestions
+  // AI Assistant - Quick Time Allocation (no interview)
+  app.post("/api/ai/suggest-quick-time-allocation", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { areas } = req.body;
+      
+      if (!areas || !Array.isArray(areas) || areas.length === 0) {
+        return res.status(400).json({ error: "areas array is required and must not be empty" });
+      }
+
+      const allocations = await suggestQuickTimeAllocation(areas);
+      res.json({ allocations });
+    } catch (error: any) {
+      console.error("Error suggesting quick time allocation:", error);
+      res.status(500).json({ error: error.message || "Failed to generate allocation suggestions" });
+    }
+  });
+
+  // AI Assistant - Time Allocation Suggestions (conversational)
   app.post("/api/ai/suggest-time-allocation", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     

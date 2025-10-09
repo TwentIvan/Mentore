@@ -107,28 +107,54 @@ export default function TimePlannerPage() {
     setCurrentAllocations(allocations);
   };
 
-  // Initialize with interest areas if available
-  const initializeFromInterestAreas = () => {
-    if (interestAreas.length === 0) {
+  // AI Quick Allocation (no interview)
+  const quickAISuggestMutation = useMutation({
+    mutationFn: async () => {
+      if (interestAreas.length === 0) {
+        throw new Error("Nessuna area di interesse");
+      }
+
+      const res = await apiRequest("POST", "/api/ai/suggest-quick-time-allocation", {
+        areas: interestAreas.map(a => ({
+          id: a.id,
+          name: a.name,
+          description: a.description || ""
+        }))
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      const suggestions = data.allocations || [];
+      
+      const allocations: TimeAllocation[] = suggestions
+        .filter((s: any) => interestAreas.find(a => a.id === s.areaId))
+        .map((s: any) => {
+          const area = interestAreas.find(a => a.id === s.areaId)!;
+          return {
+            id: s.areaId,
+            name: area.name,
+            percentage: s.percentage,
+            color: area.color || `hsl(${Math.random() * 360}, 70%, 60%)`,
+          };
+        });
+
+      if (allocations.length > 0) {
+        setCurrentAllocations(allocations);
+        setSelectedTemplateId(null);
+        toast({
+          title: "Distribuzione suggerita",
+          description: "L'AI ha generato una distribuzione ragionata del tempo",
+        });
+      }
+    },
+    onError: (error: any) => {
       toast({
-        title: "Nessuna area di interesse",
-        description: "Crea prima delle aree di interesse per utilizzare questa funzione",
+        title: "Errore",
+        description: error.message || "Impossibile generare suggerimenti",
         variant: "destructive",
       });
-      return;
-    }
-
-    const equalPercentage = 100 / interestAreas.length;
-    const allocations: TimeAllocation[] = interestAreas.map((area, index) => ({
-      id: area.id,
-      name: area.name,
-      percentage: equalPercentage,
-      color: area.color || `hsl(${(index * 360) / interestAreas.length}, 70%, 60%)`,
-    }));
-    
-    setCurrentAllocations(allocations);
-    setSelectedTemplateId(null);
-  };
+    },
+  });
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -159,12 +185,12 @@ export default function TimePlannerPage() {
                 <CardContent className="flex gap-3 flex-wrap">
                   <Button
                     variant="outline"
-                    onClick={initializeFromInterestAreas}
-                    disabled={isLoadingAreas || interestAreas.length === 0}
-                    data-testid="button-init-from-areas"
+                    onClick={() => quickAISuggestMutation.mutate()}
+                    disabled={isLoadingAreas || interestAreas.length === 0 || quickAISuggestMutation.isPending}
+                    data-testid="button-quick-ai-suggest"
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Usa Aree di Interesse
+                    {quickAISuggestMutation.isPending ? "Generazione..." : "Suggerisci con AI"}
                   </Button>
                   <Button
                     variant="outline"
