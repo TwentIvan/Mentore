@@ -24,7 +24,7 @@ import {
 } from "@shared/schema";
 import { aiService } from "./ai-service";
 import { initializeEmailService, getEmailService } from "./imap-service";
-import { suggestGenericInterestAreas, suggestQuickTimeAllocation, suggestTimeAllocation, type ConversationMessage } from "./ai-assistant";
+import { suggestGenericInterestAreas, suggestQuickTimeAllocation, suggestTimeAllocation, suggestWeeklyPlanning, type ConversationMessage } from "./ai-assistant";
 import { AuditService } from "./audit-service";
 import { MessageLogService } from "./message-log-service";
 import { gmailService } from "./gmail-service";
@@ -4725,6 +4725,29 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     } catch (error: any) {
       console.error("Error suggesting time allocation:", error);
       res.status(500).json({ error: error.message || "Failed to generate allocation suggestions" });
+    }
+  });
+
+  // AI Assistant - Weekly Planning Suggestions
+  app.post("/api/ai/suggest-weekly-planning", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { template, projects } = req.body;
+      
+      if (!template || !template.allocations || !Array.isArray(template.allocations)) {
+        return res.status(400).json({ error: "template with allocations array is required" });
+      }
+
+      if (!projects || !Array.isArray(projects)) {
+        return res.status(400).json({ error: "projects array is required" });
+      }
+
+      const suggestions = await suggestWeeklyPlanning(template, projects);
+      res.json({ suggestions });
+    } catch (error: any) {
+      console.error("Error suggesting weekly planning:", error);
+      res.status(500).json({ error: error.message || "Failed to generate weekly planning suggestions" });
     }
   });
 

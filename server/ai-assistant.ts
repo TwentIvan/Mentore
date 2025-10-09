@@ -176,3 +176,115 @@ Sii realistico e bilanciato nelle tue allocazioni.`;
     needsMoreInfo: result.needsMoreInfo || false,
   };
 }
+
+export interface PlanningWindowSuggestion {
+  projectId: string;
+  projectName: string;
+  name: string; // Nome della finestra di pianificazione
+  startDate: string; // ISO date
+  endDate: string; // ISO date
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  daysOfWeek: number[]; // 1=Lunedì, 7=Domenica
+  recurrenceType: 'none' | 'weekly';
+  recurrenceInterval: number;
+  recurrenceEnd: string; // ISO date
+  reasoning: string;
+}
+
+/**
+ * Suggerisce planning windows settimanali basate sul template di allocazione tempo
+ */
+export async function suggestWeeklyPlanning(
+  template: {
+    name: string;
+    allocations: Array<{ id: string; name: string; percentage: number; color: string }>;
+    totalHoursPerWeek: number;
+  },
+  projects: Array<{
+    id: string;
+    name: string;
+    interestAreaId: string;
+    interestAreaName: string;
+    estimatedEffort?: number;
+  }>
+): Promise<PlanningWindowSuggestion[]> {
+  const systemPrompt = `Sei un assistente AI esperto di pianificazione e time blocking.
+Il tuo compito è trasformare un template di allocazione tempo (percentuali/ore per area) in planning windows concrete per i progetti.
+
+REGOLE DI PIANIFICAZIONE:
+1. Distribuisci le ore di ogni area tra i progetti di quell'area
+2. Crea blocchi di tempo realistici (min 1 ora, max 4 ore consecutive)
+3. Considera fasce orarie produttive: 9:00-13:00 e 14:00-18:00
+4. Bilancia i giorni della settimana per evitare sovraccarichi
+5. Usa ricorrenze settimanali per attività regolari
+6. Rispetta il totale ore del template
+
+FORMATO GIORNI SETTIMANA:
+1 = Lunedì, 2 = Martedì, 3 = Mercoledì, 4 = Giovedì, 5 = Venerdì, 6 = Sabato, 7 = Domenica
+
+IMPORTANTE - Rispondi SEMPRE in formato JSON con questa struttura:
+{
+  "suggestions": [
+    {
+      "projectId": "id del progetto",
+      "projectName": "nome del progetto",
+      "name": "nome descrittivo della finestra (es: 'Sviluppo SAP - Mattina')",
+      "startDate": "data inizio ISO (es: '2025-10-13')",
+      "endDate": "data fine ISO (4 settimane dopo)",
+      "startTime": "ora inizio HH:MM (es: '09:00')",
+      "endTime": "ora fine HH:MM (es: '13:00')",
+      "daysOfWeek": [array di numeri 1-7],
+      "recurrenceType": "weekly",
+      "recurrenceInterval": 1,
+      "recurrenceEnd": "data fine ricorrenza ISO (4 settimane dopo)",
+      "reasoning": "Spiegazione della scelta (ore assegnate, giorni, fasce orarie)"
+    }
+  ]
+}
+
+Sii strategico e crea una pianificazione bilanciata ed efficace.`;
+
+  const allocationsDescription = template.allocations
+    .map(a => `- ${a.name}: ${a.percentage}% (${Math.round(template.totalHoursPerWeek * a.percentage / 100)} ore/settimana)`)
+    .join('\n');
+
+  const projectsDescription = projects
+    .map(p => `- ID: ${p.id} | Nome: ${p.name} | Area: ${p.interestAreaName} (ID: ${p.interestAreaId})${p.estimatedEffort ? ` | Sforzo stimato: ${p.estimatedEffort}h` : ''}`)
+    .join('\n');
+
+  const today = new Date().toISOString().split('T')[0];
+  const fourWeeksLater = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { 
+        role: "user", 
+        content: `Template di allocazione: "${template.name}"
+Ore totali settimana: ${template.totalHoursPerWeek}h
+
+ALLOCAZIONI PER AREA:
+${allocationsDescription}
+
+PROGETTI DISPONIBILI:
+${projectsDescription}
+
+IMPORTANTE:
+- Usa esattamente questi ID progetto nelle tue proposte
+- Data inizio: ${today}
+- Data fine suggerita: ${fourWeeksLater} (4 settimane)
+- Crea planning windows ricorrenti settimanali
+- Distribuisci le ore in modo equilibrato durante la settimana
+- Usa fasce orarie produttive
+
+Genera planning windows concrete e realistiche.` 
+      }
+    ] as any,
+    response_format: { type: "json_object" },
+  });
+
+  const result = JSON.parse(response.choices[0].message.content || "{}");
+  return result.suggestions || [];
+}

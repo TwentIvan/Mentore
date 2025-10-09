@@ -15,14 +15,16 @@ import { InteractiveTimeAllocationPieChart, type TimeAllocation } from "@/compon
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/contexts/organization-context";
-import type { InterestArea, TimeAllocationTemplate } from "@shared/schema";
+import type { InterestArea, TimeAllocationTemplate, Project } from "@shared/schema";
 
 export default function TimePlannerPage() {
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [showPlanningDialog, setShowPlanningDialog] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [currentAllocations, setCurrentAllocations] = useState<TimeAllocation[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [planningSuggestions, setPlanningSuggestions] = useState<any[]>([]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -38,6 +40,13 @@ export default function TimePlannerPage() {
   // Fetch templates
   const { data: templates = [], isLoading: isLoadingTemplates } = useQuery<TimeAllocationTemplate[]>({
     queryKey: ["/api/time-allocation-templates", currentOrganizationId],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: !!currentOrganizationId,
+  });
+
+  // Fetch projects
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["/api/projects", currentOrganizationId],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!currentOrganizationId,
   });
@@ -156,6 +165,64 @@ export default function TimePlannerPage() {
     },
   });
 
+  // AI Weekly Planning Suggestions
+  const generatePlanningMutation = useMutation({
+    mutationFn: async () => {
+      if (currentAllocations.length === 0) {
+        throw new Error("Nessuna allocazione tempo definita");
+      }
+
+      if (projects.length === 0) {
+        throw new Error("Nessun progetto disponibile");
+      }
+
+      // Prepara i progetti con le aree di interesse associate
+      const projectsWithAreas = projects
+        .filter(p => p.interestAreaId)
+        .map(p => {
+          const area = interestAreas.find(a => a.id === p.interestAreaId);
+          return {
+            id: p.id,
+            name: p.name,
+            interestAreaId: p.interestAreaId!,
+            interestAreaName: area?.name || 'Unknown',
+            estimatedEffort: p.estimatedEffort || undefined
+          };
+        });
+
+      if (projectsWithAreas.length === 0) {
+        throw new Error("Nessun progetto collegato ad aree di interesse");
+      }
+
+      const template = {
+        name: templateName || "Allocazione Corrente",
+        allocations: currentAllocations,
+        totalHoursPerWeek: 80 // default
+      };
+
+      const res = await apiRequest("POST", "/api/ai/suggest-weekly-planning", {
+        template,
+        projects: projectsWithAreas
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setPlanningSuggestions(data.suggestions || []);
+      setShowPlanningDialog(true);
+      toast({
+        title: "Pianificazione generata",
+        description: `L'AI ha proposto ${data.suggestions?.length || 0} planning windows`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Errore",
+        description: error.message || "Impossibile generare pianificazione",
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
@@ -219,6 +286,15 @@ export default function TimePlannerPage() {
               <Card data-testid="card-save-actions">
                 <CardContent className="pt-6">
                   <div className="flex gap-3 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => generatePlanningMutation.mutate()}
+                      disabled={currentAllocations.length === 0 || generatePlanningMutation.isPending}
+                      data-testid="button-generate-planning"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      {generatePlanningMutation.isPending ? "Generazione..." : "Genera Pianificazione AI"}
+                    </Button>
                     <Button
                       onClick={() => setShowSaveTemplateDialog(true)}
                       disabled={currentAllocations.length === 0}
@@ -336,6 +412,74 @@ export default function TimePlannerPage() {
                 {saveTemplateMutation.isPending ? "Salvataggio..." : "Salva"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Planning Suggestions Dialog */}
+      <Dialog open={showPlanningDialog} onOpenChange={setShowPlanningDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-planning-suggestions">
+          <DialogHeader>
+            <DialogTitle data-testid="text-planning-title">Proposte Pianificazione Settimanale</DialogTitle>
+            <DialogDescription data-testid="text-planning-description">
+              L'AI ha generato {planningSuggestions.length} planning windows basate sul tuo template
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {planningSuggestions.map((suggestion, index) => (
+              <Card key={index} data-testid={`card-suggestion-${index}`}>
+                <CardHeader>
+                  <CardTitle className="text-base" data-testid={`text-suggestion-name-${index}`}>
+                    {suggestion.name}
+                  </CardTitle>
+                  <CardDescription data-testid={`text-suggestion-project-${index}`}>
+                    Progetto: {suggestion.projectName}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Orario:</span> {suggestion.startTime} - {suggestion.endTime}
+                    </div>
+                    <div>
+                      <span className="font-medium">Giorni:</span> {suggestion.daysOfWeek.map((d: number) => 
+                        ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'][d - 1]
+                      ).join(', ')}
+                    </div>
+                    <div>
+                      <span className="font-medium">Periodo:</span> {new Date(suggestion.startDate).toLocaleDateString()} - {new Date(suggestion.endDate).toLocaleDateString()}
+                    </div>
+                    <div>
+                      <span className="font-medium">Ricorrenza:</span> {suggestion.recurrenceType === 'weekly' ? 'Settimanale' : 'Singola'}
+                    </div>
+                  </div>
+                  <div className="pt-2 text-sm text-muted-foreground" data-testid={`text-suggestion-reasoning-${index}`}>
+                    <span className="font-medium">Motivazione:</span> {suggestion.reasoning}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowPlanningDialog(false)}
+              data-testid="button-close-planning"
+            >
+              Chiudi
+            </Button>
+            <Button
+              onClick={() => {
+                toast({
+                  title: "Funzionalità in arrivo",
+                  description: "La creazione automatica di planning windows sarà disponibile a breve",
+                });
+                setShowPlanningDialog(false);
+              }}
+              data-testid="button-apply-planning"
+            >
+              Applica Pianificazione
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
