@@ -1017,7 +1017,7 @@ export const insertPlanningWindowSchema = createInsertSchema(planningWindows).om
   createdAt: true,
   updatedAt: true,
 }).extend({
-  projectId: z.string().uuid().nullable().optional(), // Optional - can be null
+  projectId: z.string().uuid().nullish(), // Optional - can be null or undefined
   interestAreaId: z.string().uuid(), // Required - must be linked to an interest area
   startTime: z.string().optional(),
   endTime: z.string().optional(),
