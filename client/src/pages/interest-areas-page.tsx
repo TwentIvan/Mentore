@@ -16,10 +16,9 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Edit, Trash2, Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles, Bot } from "lucide-react";
+import { Plus, Edit, Trash2, Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles, Lightbulb } from "lucide-react";
 import type { InterestArea } from "@shared/schema";
 import { insertInterestAreaSchema } from "@shared/schema";
-import { AIAssistantDialog } from "@/components/ai-assistant-dialog";
 
 // Icon mapping
 const iconMap = {
@@ -70,7 +69,6 @@ export default function InterestAreasPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [selectedArea, setSelectedArea] = useState<InterestArea | null>(null);
 
   const { toast } = useToast();
@@ -211,36 +209,60 @@ export default function InterestAreasPage() {
     return iconMap[iconName as keyof typeof iconMap];
   };
 
-  const handleAcceptSuggestions = async (suggestions: Array<{name: string; description: string; color: string; reasoning: string}>) => {
-    try {
-      const promises = suggestions.map(suggestion => 
-        apiRequest("POST", "/api/interest-areas", {
-          name: suggestion.name,
-          description: suggestion.description,
-          color: suggestion.color,
-          icon: "Sparkles",
-          userId: "current",
-          organizationId: currentOrganizationId,
-          isActive: true,
-        }).then(res => res.json())
-      );
+  // Suggerimenti generici basati su trend
+  const suggestGenericMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/ai/suggest-generic-interest-areas", {});
+      return res.json();
+    },
+    onSuccess: async (data) => {
+      const suggestions = data.suggestions || [];
+      
+      if (suggestions.length === 0) {
+        toast({
+          title: "Nessun nuovo suggerimento",
+          description: "Le aree di interesse attuali sono già complete secondo le best practices",
+        });
+        return;
+      }
 
-      await Promise.all(promises);
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/interest-areas", currentOrganizationId] });
-      
-      toast({
-        title: "Aree create",
-        description: `${suggestions.length} aree di interesse create con successo`,
-      });
-    } catch (error) {
+      try {
+        const promises = suggestions.map((suggestion: any) => 
+          apiRequest("POST", "/api/interest-areas", {
+            name: suggestion.name,
+            description: suggestion.description,
+            color: suggestion.color,
+            icon: "Sparkles",
+            userId: "current",
+            organizationId: currentOrganizationId,
+            isActive: true,
+          }).then(res => res.json())
+        );
+
+        await Promise.all(promises);
+        
+        queryClient.invalidateQueries({ queryKey: ["/api/interest-areas", currentOrganizationId] });
+        
+        toast({
+          title: "Aree aggiunte",
+          description: `${suggestions.length} nuove aree di interesse aggiunte basate su trend e best practices`,
+        });
+      } catch (error) {
+        toast({
+          title: "Errore",
+          description: "Impossibile aggiungere le aree suggerite",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: () => {
       toast({
         title: "Errore",
-        description: "Impossibile creare alcune aree di interesse",
+        description: "Impossibile ottenere suggerimenti",
         variant: "destructive",
       });
-    }
-  };
+    },
+  });
 
   return (
     <div className="flex h-screen bg-background">
@@ -258,12 +280,13 @@ export default function InterestAreasPage() {
               </div>
               <div className="flex gap-2">
                 <Button 
-                  data-testid="button-ai-assistant" 
+                  data-testid="button-suggest-areas" 
                   variant="outline"
-                  onClick={() => setShowAIAssistant(true)}
+                  onClick={() => suggestGenericMutation.mutate()}
+                  disabled={suggestGenericMutation.isPending}
                 >
-                  <Bot className="h-4 w-4 mr-2" />
-                  Assistente AI
+                  <Lightbulb className="h-4 w-4 mr-2" />
+                  {suggestGenericMutation.isPending ? "Caricamento..." : "Suggerisci aree"}
                 </Button>
                 <Button data-testid="button-create-area" onClick={handleCreate}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -292,16 +315,17 @@ export default function InterestAreasPage() {
                   <Tag className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Nessuna area di interesse</h3>
                   <p className="text-muted-foreground text-center mb-4">
-                    Crea la tua prima area di interesse per iniziare a organizzare i tuoi progetti
+                    Crea la tua prima area di interesse o usa i suggerimenti basati su trend e best practices
                   </p>
                   <div className="flex gap-2">
                     <Button 
-                      data-testid="button-ai-create-first" 
+                      data-testid="button-suggest-first" 
                       variant="outline"
-                      onClick={() => setShowAIAssistant(true)}
+                      onClick={() => suggestGenericMutation.mutate()}
+                      disabled={suggestGenericMutation.isPending}
                     >
-                      <Bot className="h-4 w-4 mr-2" />
-                      Usa Assistente AI
+                      <Lightbulb className="h-4 w-4 mr-2" />
+                      {suggestGenericMutation.isPending ? "Caricamento..." : "Suggerisci aree"}
                     </Button>
                     <Button data-testid="button-create-first-area" onClick={handleCreate}>
                       <Plus className="h-4 w-4 mr-2" />
@@ -534,13 +558,6 @@ export default function InterestAreasPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* AI Assistant Dialog */}
-      <AIAssistantDialog
-        open={showAIAssistant}
-        onOpenChange={setShowAIAssistant}
-        onAcceptSuggestions={handleAcceptSuggestions}
-      />
     </div>
   );
 }

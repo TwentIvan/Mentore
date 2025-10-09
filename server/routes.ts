@@ -24,7 +24,7 @@ import {
 } from "@shared/schema";
 import { aiService } from "./ai-service";
 import { initializeEmailService, getEmailService } from "./imap-service";
-import { suggestInterestAreas, suggestTimeAllocation, type ConversationMessage } from "./ai-assistant";
+import { suggestGenericInterestAreas, suggestTimeAllocation, type ConversationMessage } from "./ai-assistant";
 import { AuditService } from "./audit-service";
 import { MessageLogService } from "./message-log-service";
 import { gmailService } from "./gmail-service";
@@ -4668,25 +4668,15 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     res.status(204).send();
   });
 
-  // AI Assistant - Interest Areas Suggestions
-  app.post("/api/ai/suggest-interest-areas", async (req, res) => {
+  // AI Assistant - Generic Interest Areas Suggestions
+  app.post("/api/ai/suggest-generic-interest-areas", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
-      const { userContext, conversationHistory } = req.body;
-      
-      if (!userContext || typeof userContext !== 'string') {
-        return res.status(400).json({ error: "userContext is required and must be a string" });
-      }
-
-      const result = await suggestInterestAreas(
-        userContext,
-        conversationHistory as ConversationMessage[] || []
-      );
-
-      res.json(result);
+      const suggestions = await suggestGenericInterestAreas();
+      res.json({ suggestions });
     } catch (error: any) {
-      console.error("Error suggesting interest areas:", error);
+      console.error("Error suggesting generic interest areas:", error);
       res.status(500).json({ error: error.message || "Failed to generate suggestions" });
     }
   });

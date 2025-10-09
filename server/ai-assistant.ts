@@ -22,67 +22,56 @@ export interface ConversationMessage {
 }
 
 /**
- * Suggerisce aree di interesse basandosi sul contesto dell'utente
+ * Suggerisce aree di interesse generiche basate su best practices e trend attuali
  */
-export async function suggestInterestAreas(
-  userContext: string,
-  conversationHistory: ConversationMessage[] = []
-): Promise<{
-  suggestions: InterestAreaSuggestion[];
-  question?: string;
-  needsMoreInfo: boolean;
-}> {
+export async function suggestGenericInterestAreas(): Promise<InterestAreaSuggestion[]> {
   const systemPrompt = `Sei un assistente AI esperto di gestione del tempo e pianificazione personale. 
-Il tuo compito è aiutare l'utente a identificare le sue aree di interesse principali per una migliore organizzazione del tempo.
+Il tuo compito è suggerire aree di interesse GENERICHE basate su best practices e trend attuali del 2025.
 
-Aree di interesse sono categorie ampie della vita come:
+Le aree di interesse devono essere:
+- GENERICHE e applicabili alla maggior parte delle persone
+- Categorie ampie della vita (es: Lavoro, Studio, Fitness, Famiglia, ecc.)
+- Con descrizioni GENERICHE non personalizzate
+- Basate su trend e best practices attuali
+
+Esempi di aree GENERICHE:
 - Lavoro/Carriera
 - Salute e Fitness
-- Famiglia
+- Famiglia e Relazioni
 - Sviluppo Personale
-- Hobby e Passioni
-- Relazioni Sociali
-- Finanze
+- Hobby e Tempo Libero
+- Finanze Personali
 - Spiritualità/Mindfulness
+- Formazione Continua
 
 IMPORTANTE:
-1. Se non hai abbastanza informazioni, fai UNA domanda specifica per capire meglio le priorità dell'utente
-2. Quando hai informazioni sufficienti, suggerisci 4-8 aree di interesse personalizzate
-3. Rispondi SEMPRE in formato JSON con questa struttura:
+Suggerisci 6-8 aree di interesse generiche.
+Le descrizioni devono essere generiche, NON personalizzate.
+Rispondi SEMPRE in formato JSON con questa struttura:
 {
-  "needsMoreInfo": boolean,
-  "question": "domanda da fare all'utente (solo se needsMoreInfo è true)",
   "suggestions": [
     {
-      "name": "Nome Area",
-      "description": "Descrizione dettagliata",
+      "name": "Nome Area Generico",
+      "description": "Descrizione generica dell'area",
       "color": "codice colore esadecimale",
-      "reasoning": "Perché questa area è importante per l'utente"
+      "reasoning": "Perché questa area è rilevante nel 2025 (trend/best practices)"
     }
   ]
 }
 
 Scegli colori distintivi e piacevoli per ogni area.`;
 
-  const messages: ConversationMessage[] = [
-    { role: "system", content: systemPrompt },
-    ...conversationHistory,
-    { role: "user", content: userContext }
-  ];
-
   const response = await openai.chat.completions.create({
     model: "gpt-5",
-    messages: messages as any,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Suggerisci aree di interesse generiche basate su trend e best practices del 2025" }
+    ] as any,
     response_format: { type: "json_object" },
   });
 
   const result = JSON.parse(response.choices[0].message.content || "{}");
-
-  return {
-    suggestions: result.suggestions || [],
-    question: result.question,
-    needsMoreInfo: result.needsMoreInfo || false,
-  };
+  return result.suggestions || [];
 }
 
 /**
