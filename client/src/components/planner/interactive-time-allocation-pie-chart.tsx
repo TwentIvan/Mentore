@@ -69,9 +69,78 @@ export function InteractiveTimeAllocationPieChart({
   const isValid = Math.abs(totalPercentage - 100) < 0.01;
 
   const handlePercentageChange = (id: string, newPercentage: number) => {
-    const updatedAllocations = allocations.map(item =>
-      item.id === id ? { ...item, percentage: Math.max(0, Math.min(100, newPercentage)) } : item
-    );
+    // Clamp the new percentage
+    newPercentage = Math.max(0, Math.min(100, newPercentage));
+    
+    // Find the current allocation and calculate delta
+    const currentAllocation = allocations.find(item => item.id === id);
+    if (!currentAllocation) return;
+    
+    const delta = newPercentage - currentAllocation.percentage;
+    if (Math.abs(delta) < 0.01) return; // No change
+    
+    // Get other allocations (excluding the one being changed)
+    const others = allocations.filter(item => item.id !== id);
+    
+    // If there are no others, just update without redistribution
+    if (others.length === 0) {
+      const updatedAllocations = allocations.map(item =>
+        item.id === id ? { ...item, percentage: newPercentage } : item
+      );
+      setAllocations(updatedAllocations);
+      onAllocationsChange?.(updatedAllocations);
+      return;
+    }
+    
+    // Calculate total percentage of others
+    const othersTotal = others.reduce((sum, item) => sum + item.percentage, 0);
+    
+    let updatedAllocations: TimeAllocation[];
+    
+    if (othersTotal === 0) {
+      // All others are at 0%, distribute the remainder (100 - newPercentage) equally
+      const remainder = 100 - newPercentage;
+      const perOther = remainder / others.length;
+      
+      updatedAllocations = allocations.map(item => {
+        if (item.id === id) {
+          return { ...item, percentage: newPercentage };
+        } else {
+          return { ...item, percentage: Math.max(0, perOther) };
+        }
+      });
+    } else {
+      // Redistribute the delta proportionally among other allocations
+      updatedAllocations = allocations.map(item => {
+        if (item.id === id) {
+          return { ...item, percentage: newPercentage };
+        } else {
+          // Proportional redistribution based on current percentage
+          const proportion = item.percentage / othersTotal;
+          const adjustment = -delta * proportion;
+          const newValue = Math.max(0, item.percentage + adjustment);
+          return { ...item, percentage: newValue };
+        }
+      });
+      
+      // Renormalize to ensure total is exactly 100% (only adjust non-edited items)
+      const currentTotal = updatedAllocations.reduce((sum, item) => sum + item.percentage, 0);
+      if (Math.abs(currentTotal - 100) > 0.01) {
+        const nonEditedItems = updatedAllocations.filter(item => item.id !== id && item.percentage > 0);
+        const nonEditedTotal = nonEditedItems.reduce((sum, item) => sum + item.percentage, 0);
+        
+        if (nonEditedTotal > 0) {
+          const targetTotal = 100 - newPercentage;
+          const scaleFactor = targetTotal / nonEditedTotal;
+          
+          updatedAllocations = updatedAllocations.map(item => {
+            if (item.id === id || item.percentage === 0) return item;
+            return { ...item, percentage: item.percentage * scaleFactor };
+          });
+        }
+      }
+    }
+    
     setAllocations(updatedAllocations);
     onAllocationsChange?.(updatedAllocations);
   };
@@ -194,6 +263,8 @@ export function InteractiveTimeAllocationPieChart({
                   activeShape={renderActiveShape}
                   onMouseEnter={(_, index) => setActiveIndex(index)}
                   onMouseLeave={() => setActiveIndex(null)}
+                  label={({ name, percentage }) => `${name} ${percentage.toFixed(0)}%`}
+                  labelLine={false}
                 >
                   {allocations.map((entry, index) => (
                     <Cell key={`cell-${entry.id}`} fill={entry.color} />

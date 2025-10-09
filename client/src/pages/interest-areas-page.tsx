@@ -124,7 +124,7 @@ export default function InterestAreasPage() {
   const updateMutation = useMutation({
     mutationFn: async (data: FormValues & { id: string }) => {
       const { id, ...updateData } = data;
-      const res = await apiRequest("PATCH", `/api/interest-areas/${id}`, updateData);
+      const res = await apiRequest("PUT", `/api/interest-areas/${id}`, updateData);
       return res.json();
     },
     onSuccess: () => {
