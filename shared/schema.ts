@@ -138,6 +138,7 @@ export const timesheetStatusEnum = pgEnum("timesheet_status", ["draft", "to_send
 // Planning Windows - Multiple planning periods for a project with recurrence support
 export const planningWindows = pgTable("planning_windows", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
   projectId: uuid("project_id").references(() => projects.id), // Optional - can be linked to interest area only
   interestAreaId: uuid("interest_area_id").references(() => interestAreas.id).notNull(), // Required - always linked to an interest area
   // Note: planning windows are NOT segregated by organization - shared planning calendar
@@ -824,6 +825,7 @@ export const calendarEventsRelations = relations(calendarEvents, ({ one }) => ({
 }));
 
 export const planningWindowsRelations = relations(planningWindows, ({ one }) => ({
+  user: one(users, { fields: [planningWindows.userId], references: [users.id] }),
   project: one(projects, { fields: [planningWindows.projectId], references: [projects.id] }),
   interestArea: one(interestAreas, { fields: [planningWindows.interestAreaId], references: [interestAreas.id] }),
 }));
