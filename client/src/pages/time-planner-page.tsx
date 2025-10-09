@@ -16,7 +16,10 @@ import { PlanningChatDialog } from "@/components/planner/planning-chat-dialog";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/contexts/organization-context";
-import type { InterestArea, TimeAllocationTemplate, Project } from "@shared/schema";
+import type { InterestArea, TimeAllocationTemplate, Project, PlanningWindow } from "@shared/schema";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
+import { Trash2, Calendar as CalendarIcon } from "lucide-react";
 
 export default function TimePlannerPage() {
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
@@ -50,6 +53,12 @@ export default function TimePlannerPage() {
     queryKey: ["/api/projects", currentOrganizationId],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!currentOrganizationId,
+  });
+
+  // Fetch planning windows
+  const { data: planningWindows = [], isLoading: isLoadingWindows } = useQuery<PlanningWindow[]>({
+    queryKey: ["/api/planning-windows"],
+    queryFn: getQueryFn({ on401: "throw" }),
   });
 
   // Save template mutation
@@ -221,6 +230,27 @@ export default function TimePlannerPage() {
     },
   });
 
+  // Delete planning window mutation
+  const deletePlanningWindowMutation = useMutation({
+    mutationFn: async (windowId: string) => {
+      await apiRequest("DELETE", `/api/planning-windows/${windowId}`, null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/planning-windows"] });
+      toast({
+        title: "Planning window eliminata",
+        description: "La planning window è stata eliminata con successo",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Errore",
+        description: "Impossibile eliminare la planning window",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Apply Planning Windows Mutation
   const applyPlanningMutation = useMutation({
     mutationFn: async (suggestions: any[]) => {
@@ -276,9 +306,10 @@ export default function TimePlannerPage() {
 
         <div className="p-6 space-y-6">
           <Tabs defaultValue="planner" className="w-full" data-testid="tabs-time-planner">
-            <TabsList className="grid w-full grid-cols-2 max-w-md" data-testid="tabslist-planner">
+            <TabsList className="grid w-full grid-cols-3 max-w-2xl" data-testid="tabslist-planner">
               <TabsTrigger value="planner" data-testid="tab-planner">Planner</TabsTrigger>
               <TabsTrigger value="templates" data-testid="tab-templates">Templates</TabsTrigger>
+              <TabsTrigger value="windows" data-testid="tab-windows">Planning Windows</TabsTrigger>
             </TabsList>
 
             <TabsContent value="planner" className="space-y-6" data-testid="tabcontent-planner">
@@ -399,6 +430,82 @@ export default function TimePlannerPage() {
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="windows" className="space-y-4" data-testid="tabcontent-windows">
+              {isLoadingWindows ? (
+                <Card data-testid="card-loading-windows">
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground" data-testid="text-loading-windows">Caricamento planning windows...</p>
+                  </CardContent>
+                </Card>
+              ) : planningWindows.length === 0 ? (
+                <Card data-testid="card-no-windows">
+                  <CardContent className="py-12 text-center">
+                    <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2" data-testid="text-no-windows-title">Nessuna planning window</h3>
+                    <p className="text-muted-foreground mb-4" data-testid="text-no-windows-description">
+                      Genera una pianificazione AI per creare le tue prime planning windows
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4" data-testid="list-windows">
+                  {planningWindows.map((window) => {
+                    const area = interestAreas.find(a => a.id === window.interestAreaId);
+                    const project = projects.find(p => p.id === window.projectId);
+                    
+                    return (
+                      <Card key={window.id} data-testid={`card-window-${window.id}`}>
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="text-base mb-1" data-testid={`text-window-name-${window.id}`}>
+                                {window.name}
+                              </CardTitle>
+                              <CardDescription className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span 
+                                    className="inline-block w-3 h-3 rounded-full" 
+                                    style={{ backgroundColor: area?.color || '#999' }}
+                                  />
+                                  <span data-testid={`text-area-${window.id}`}>{area?.name || 'Area sconosciuta'}</span>
+                                </div>
+                                {project && (
+                                  <div className="text-sm text-muted-foreground" data-testid={`text-project-${window.id}`}>
+                                    Progetto: {project.name}
+                                  </div>
+                                )}
+                                <div className="text-sm" data-testid={`text-dates-${window.id}`}>
+                                  {format(new Date(window.startDate), "d MMM", { locale: it })} - {format(new Date(window.endDate), "d MMM yyyy", { locale: it })}
+                                  <span className="mx-2">•</span>
+                                  {window.startTime} - {window.endTime}
+                                </div>
+                              </CardDescription>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deletePlanningWindowMutation.mutate(window.id)}
+                              disabled={deletePlanningWindowMutation.isPending}
+                              data-testid={`button-delete-${window.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        {window.notes && (
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground" data-testid={`text-notes-${window.id}`}>
+                              {window.notes}
+                            </p>
+                          </CardContent>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
