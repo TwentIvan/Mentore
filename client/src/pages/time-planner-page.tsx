@@ -48,8 +48,8 @@ export default function TimePlannerPage() {
       const res = await apiRequest("POST", "/api/time-allocation-templates", {
         name: data.name,
         description: data.description,
-        templateData: data.allocations,
-        isActive: true,
+        allocations: data.allocations,
+        isDefault: false,
         userId: "current", // Will be set by backend
         organizationId: currentOrganizationId,
       });
