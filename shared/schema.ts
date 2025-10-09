@@ -138,7 +138,8 @@ export const timesheetStatusEnum = pgEnum("timesheet_status", ["draft", "to_send
 // Planning Windows - Multiple planning periods for a project with recurrence support
 export const planningWindows = pgTable("planning_windows", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: uuid("project_id").references(() => projects.id).notNull(),
+  projectId: uuid("project_id").references(() => projects.id), // Optional - can be linked to interest area only
+  interestAreaId: uuid("interest_area_id").references(() => interestAreas.id).notNull(), // Required - always linked to an interest area
   // Note: planning windows are NOT segregated by organization - shared planning calendar
   name: text("name").notNull(), // e.g., "Sprint 1", "Phase A", "Q1 Development"
   startDate: timestamp("start_date").notNull(),
@@ -824,6 +825,7 @@ export const calendarEventsRelations = relations(calendarEvents, ({ one }) => ({
 
 export const planningWindowsRelations = relations(planningWindows, ({ one }) => ({
   project: one(projects, { fields: [planningWindows.projectId], references: [projects.id] }),
+  interestArea: one(interestAreas, { fields: [planningWindows.interestAreaId], references: [interestAreas.id] }),
 }));
 
 export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
@@ -1015,6 +1017,8 @@ export const insertPlanningWindowSchema = createInsertSchema(planningWindows).om
   createdAt: true,
   updatedAt: true,
 }).extend({
+  projectId: z.string().uuid().nullable().optional(), // Optional - can be null
+  interestAreaId: z.string().uuid(), // Required - must be linked to an interest area
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   daysOfWeek: z.array(z.number().min(1).max(7)).optional(),

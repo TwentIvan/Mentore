@@ -1802,7 +1802,8 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     if (!req.isAuthenticated()) return res.sendStatus(401);
     try {
       const windowData = insertPlanningWindowSchema.parse({
-        projectId: req.body.projectId,
+        projectId: req.body.projectId || null,
+        interestAreaId: req.body.interestAreaId,
         name: req.body.name,
         startDate: new Date(req.body.startDate),
         endDate: new Date(req.body.endDate),
