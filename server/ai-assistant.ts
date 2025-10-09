@@ -309,3 +309,109 @@ Genera planning windows concrete e realistiche basate sulle aree di interesse.`;
   const result = JSON.parse(response.choices[0].message.content || "{}");
   return result.suggestions || [];
 }
+
+export interface PlanningChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface PlanningChatResponse {
+  message: string;
+  updatedSuggestions?: PlanningWindowSuggestion[];
+  hasUpdates: boolean;
+}
+
+/**
+ * Chatbot per discutere e modificare le proposte di pianificazione
+ */
+export async function chatAboutPlanning(
+  currentSuggestions: PlanningWindowSuggestion[],
+  conversationHistory: PlanningChatMessage[],
+  userMessage: string
+): Promise<PlanningChatResponse> {
+  const systemPrompt = `Sei un assistente AI esperto di pianificazione e time management.
+Il tuo compito è discutere con l'utente le proposte di planning windows e modificarle in base alle sue richieste.
+
+CAPACITÀ:
+1. Rispondere a domande sulle proposte (perché certe scelte, orari, ecc.)
+2. Modificare proposte esistenti (cambiare orari, giorni, durata)
+3. Aggiungere nuove planning windows se richiesto
+4. Rimuovere planning windows se richiesto
+5. Spiegare il ragionamento dietro le proposte
+
+FORMATO GIORNI SETTIMANA:
+1 = Lunedì, 2 = Martedì, 3 = Mercoledì, 4 = Giovedì, 5 = Venerdì, 6 = Sabato, 7 = Domenica
+
+IMPORTANTE - Comportamento:
+- Se l'utente chiede solo informazioni/spiegazioni, rispondi senza modificare le proposte
+- Se l'utente chiede modifiche, aggiorna le proposte e spiega cosa hai cambiato
+- Sii conversazionale e amichevole
+- Fornisci consigli quando appropriato
+
+IMPORTANTE - Rispondi SEMPRE in formato JSON con questa struttura:
+{
+  "message": "La tua risposta all'utente in linguaggio naturale",
+  "hasUpdates": true/false (true se hai modificato le proposte),
+  "updatedSuggestions": [array di PlanningWindowSuggestion] (solo se hasUpdates è true)
+}
+
+Il formato di PlanningWindowSuggestion è:
+{
+  "projectId": "id del progetto (opzionale)",
+  "projectName": "nome del progetto (opzionale)",
+  "interestAreaId": "id dell'area di interesse",
+  "interestAreaName": "nome dell'area di interesse",
+  "name": "nome descrittivo della finestra",
+  "startDate": "data inizio ISO (es: '2025-10-13')",
+  "endDate": "data fine ISO",
+  "startTime": "ora inizio HH:MM (es: '09:00')",
+  "endTime": "ora fine HH:MM (es: '13:00')",
+  "daysOfWeek": [array di numeri 1-7],
+  "recurrenceType": "weekly" o "none",
+  "recurrenceInterval": 1,
+  "recurrenceEnd": "data fine ricorrenza ISO",
+  "reasoning": "Spiegazione della scelta"
+}
+
+Sii collaborativo e aiuta l'utente a ottimizzare la sua pianificazione.`;
+
+  const suggestionsDescription = currentSuggestions.map((s, idx) => 
+    `${idx + 1}. ${s.name}
+   Area: ${s.interestAreaName}${s.projectName ? ` | Progetto: ${s.projectName}` : ''}
+   Orario: ${s.startTime}-${s.endTime}
+   Giorni: ${s.daysOfWeek.map(d => ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'][d - 1]).join(', ')}
+   Periodo: ${s.startDate} → ${s.endDate}
+   Ricorrenza: ${s.recurrenceType === 'weekly' ? 'Settimanale' : 'Singola'}
+   Motivazione: ${s.reasoning}`
+  ).join('\n\n');
+
+  const messages: any[] = [
+    { role: "system", content: systemPrompt },
+    { 
+      role: "user", 
+      content: `Ecco le proposte di pianificazione correnti:\n\n${suggestionsDescription}\n\nOra inizia la conversazione.` 
+    },
+  ];
+
+  // Aggiungi lo storico della conversazione
+  conversationHistory.forEach(msg => {
+    messages.push({ role: msg.role, content: msg.content });
+  });
+
+  // Aggiungi il nuovo messaggio dell'utente
+  messages.push({ role: "user", content: userMessage });
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages,
+    response_format: { type: "json_object" },
+  });
+
+  const result = JSON.parse(response.choices[0].message.content || "{}");
+  
+  return {
+    message: result.message || "Mi dispiace, non ho capito. Puoi riformulare?",
+    updatedSuggestions: result.updatedSuggestions,
+    hasUpdates: result.hasUpdates || false,
+  };
+}
