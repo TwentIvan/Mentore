@@ -172,11 +172,7 @@ export default function TimePlannerPage() {
         throw new Error("Nessuna allocazione tempo definita");
       }
 
-      if (projects.length === 0) {
-        throw new Error("Nessun progetto disponibile");
-      }
-
-      // Prepara i progetti con le aree di interesse associate
+      // Prepara i progetti con le aree di interesse associate (opzionali)
       const projectsWithAreas = projects
         .filter(p => p.interestAreaId)
         .map(p => {
@@ -190,10 +186,6 @@ export default function TimePlannerPage() {
           };
         });
 
-      if (projectsWithAreas.length === 0) {
-        throw new Error("Nessun progetto collegato ad aree di interesse");
-      }
-
       const template = {
         name: templateName || "Allocazione Corrente",
         allocations: currentAllocations,
@@ -202,7 +194,12 @@ export default function TimePlannerPage() {
 
       const res = await apiRequest("POST", "/api/ai/suggest-weekly-planning", {
         template,
-        projects: projectsWithAreas
+        projects: projectsWithAreas.length > 0 ? projectsWithAreas : undefined,
+        interestAreas: interestAreas.map(a => ({
+          id: a.id,
+          name: a.name,
+          description: a.description || undefined
+        }))
       });
       return res.json();
     },
@@ -433,7 +430,8 @@ export default function TimePlannerPage() {
                     {suggestion.name}
                   </CardTitle>
                   <CardDescription data-testid={`text-suggestion-project-${index}`}>
-                    Progetto: {suggestion.projectName}
+                    Area: {suggestion.interestAreaName}
+                    {suggestion.projectName && ` • Progetto: ${suggestion.projectName}`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">

@@ -4733,17 +4733,20 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
-      const { template, projects } = req.body;
+      const { template, interestAreas, projects } = req.body;
       
       if (!template || !template.allocations || !Array.isArray(template.allocations)) {
         return res.status(400).json({ error: "template with allocations array is required" });
       }
 
-      if (!projects || !Array.isArray(projects)) {
-        return res.status(400).json({ error: "projects array is required" });
+      if (!interestAreas || !Array.isArray(interestAreas)) {
+        return res.status(400).json({ error: "interestAreas array is required" });
       }
 
-      const suggestions = await suggestWeeklyPlanning(template, projects);
+      // Projects are optional
+      const projectsList = projects && Array.isArray(projects) ? projects : undefined;
+
+      const suggestions = await suggestWeeklyPlanning(template, interestAreas, projectsList);
       res.json({ suggestions });
     } catch (error: any) {
       console.error("Error suggesting weekly planning:", error);

@@ -178,8 +178,10 @@ Sii realistico e bilanciato nelle tue allocazioni.`;
 }
 
 export interface PlanningWindowSuggestion {
-  projectId: string;
-  projectName: string;
+  projectId?: string;
+  projectName?: string;
+  interestAreaId: string;
+  interestAreaName: string;
   name: string; // Nome della finestra di pianificazione
   startDate: string; // ISO date
   endDate: string; // ISO date
@@ -201,7 +203,12 @@ export async function suggestWeeklyPlanning(
     allocations: Array<{ id: string; name: string; percentage: number; color: string }>;
     totalHoursPerWeek: number;
   },
-  projects: Array<{
+  interestAreas: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>,
+  projects?: Array<{
     id: string;
     name: string;
     interestAreaId: string;
@@ -209,16 +216,18 @@ export async function suggestWeeklyPlanning(
     estimatedEffort?: number;
   }>
 ): Promise<PlanningWindowSuggestion[]> {
+  const hasProjects = projects && projects.length > 0;
+  
   const systemPrompt = `Sei un assistente AI esperto di pianificazione e time blocking.
-Il tuo compito è trasformare un template di allocazione tempo (percentuali/ore per area) in planning windows concrete per i progetti.
+Il tuo compito è trasformare un template di allocazione tempo (percentuali/ore per area) in planning windows concrete.
 
 REGOLE DI PIANIFICAZIONE:
-1. Distribuisci le ore di ogni area tra i progetti di quell'area
-2. Crea blocchi di tempo realistici (min 1 ora, max 4 ore consecutive)
-3. Considera fasce orarie produttive: 9:00-13:00 e 14:00-18:00
-4. Bilancia i giorni della settimana per evitare sovraccarichi
-5. Usa ricorrenze settimanali per attività regolari
-6. Rispetta il totale ore del template
+1. Crea blocchi di tempo realistici (min 1 ora, max 4 ore consecutive)
+2. Considera fasce orarie produttive: 9:00-13:00 e 14:00-18:00
+3. Bilancia i giorni della settimana per evitare sovraccarichi
+4. Usa ricorrenze settimanali per attività regolari
+5. Rispetta il totale ore del template
+${hasProjects ? '6. Se disponibili, distribuisci le ore tra i progetti dell\'area considerando lo sforzo stimato' : '6. Crea windows generiche per ogni area di interesse'}
 
 FORMATO GIORNI SETTIMANA:
 1 = Lunedì, 2 = Martedì, 3 = Mercoledì, 4 = Giovedì, 5 = Venerdì, 6 = Sabato, 7 = Domenica
@@ -227,9 +236,11 @@ IMPORTANTE - Rispondi SEMPRE in formato JSON con questa struttura:
 {
   "suggestions": [
     {
-      "projectId": "id del progetto",
-      "projectName": "nome del progetto",
-      "name": "nome descrittivo della finestra (es: 'Sviluppo SAP - Mattina')",
+      ${hasProjects ? '"projectId": "id del progetto (se disponibile)",' : ''}
+      ${hasProjects ? '"projectName": "nome del progetto (se disponibile)",' : ''}
+      "interestAreaId": "id dell'area di interesse",
+      "interestAreaName": "nome dell'area di interesse",
+      "name": "nome descrittivo della finestra (es: 'Lavoro - Mattina' o 'Sviluppo SAP')",
       "startDate": "data inizio ISO (es: '2025-10-13')",
       "endDate": "data fine ISO (4 settimane dopo)",
       "startTime": "ora inizio HH:MM (es: '09:00')",
@@ -249,38 +260,48 @@ Sii strategico e crea una pianificazione bilanciata ed efficace.`;
     .map(a => `- ${a.name}: ${a.percentage}% (${Math.round(template.totalHoursPerWeek * a.percentage / 100)} ore/settimana)`)
     .join('\n');
 
-  const projectsDescription = projects
-    .map(p => `- ID: ${p.id} | Nome: ${p.name} | Area: ${p.interestAreaName} (ID: ${p.interestAreaId})${p.estimatedEffort ? ` | Sforzo stimato: ${p.estimatedEffort}h` : ''}`)
+  const areasDescription = interestAreas
+    .map(a => `- ID: ${a.id} | Nome: ${a.name}${a.description ? ` | Descrizione: ${a.description}` : ''}`)
     .join('\n');
+
+  const projectsDescription = hasProjects 
+    ? projects!.map(p => `- ID: ${p.id} | Nome: ${p.name} | Area: ${p.interestAreaName} (ID: ${p.interestAreaId})${p.estimatedEffort ? ` | Sforzo stimato: ${p.estimatedEffort}h` : ''}`).join('\n')
+    : '';
 
   const today = new Date().toISOString().split('T')[0];
   const fourWeeksLater = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { 
-        role: "user", 
-        content: `Template di allocazione: "${template.name}"
+  const userContent = `Template di allocazione: "${template.name}"
 Ore totali settimana: ${template.totalHoursPerWeek}h
 
 ALLOCAZIONI PER AREA:
 ${allocationsDescription}
 
-PROGETTI DISPONIBILI:
+AREE DI INTERESSE:
+${areasDescription}
+
+${hasProjects ? `PROGETTI DISPONIBILI (opzionali per arricchire i suggerimenti):
 ${projectsDescription}
 
-IMPORTANTE:
-- Usa esattamente questi ID progetto nelle tue proposte
+IMPORTANTE - Progetti:
+- Usa esattamente questi ID progetto quando crei windows per progetti specifici
+- Puoi anche creare windows generiche per aree senza progetti specifici
+` : 'NOTA: Non ci sono progetti definiti. Crea planning windows generiche per le aree di interesse.'}
+
+IMPORTANTE - Date e Ricorrenze:
 - Data inizio: ${today}
 - Data fine suggerita: ${fourWeeksLater} (4 settimane)
 - Crea planning windows ricorrenti settimanali
 - Distribuisci le ore in modo equilibrato durante la settimana
 - Usa fasce orarie produttive
 
-Genera planning windows concrete e realistiche.` 
-      }
+Genera planning windows concrete e realistiche basate sulle aree di interesse.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent }
     ] as any,
     response_format: { type: "json_object" },
   });
