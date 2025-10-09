@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, Plus, FileText, Sparkles } from "lucide-react";
 import { InteractiveTimeAllocationPieChart, type TimeAllocation } from "@/components/planner/interactive-time-allocation-pie-chart";
+import { PlanningChatDialog } from "@/components/planner/planning-chat-dialog";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useOrganization } from "@/contexts/organization-context";
@@ -220,6 +221,49 @@ export default function TimePlannerPage() {
     },
   });
 
+  // Apply Planning Windows Mutation
+  const applyPlanningMutation = useMutation({
+    mutationFn: async (suggestions: any[]) => {
+      // Create planning windows from suggestions
+      const promises = suggestions.map(suggestion => 
+        apiRequest("POST", "/api/planning-windows", {
+          name: suggestion.name,
+          startDate: suggestion.startDate,
+          endDate: suggestion.endDate,
+          startTime: suggestion.startTime,
+          endTime: suggestion.endTime,
+          daysOfWeek: suggestion.daysOfWeek,
+          recurrenceType: suggestion.recurrenceType,
+          recurrenceInterval: suggestion.recurrenceInterval,
+          recurrenceEnd: suggestion.recurrenceEnd,
+          projectId: suggestion.projectId || null,
+          interestAreaId: suggestion.interestAreaId,
+        }).then(res => res.json())
+      );
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/planning-windows"] });
+      setShowPlanningDialog(false);
+      setPlanningSuggestions([]);
+      toast({
+        title: "Pianificazione applicata",
+        description: "Le planning windows sono state create con successo",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Errore",
+        description: "Impossibile creare le planning windows",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleApplyPlanning = (suggestions: any[]) => {
+    applyPlanningMutation.mutate(suggestions);
+  };
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
@@ -413,74 +457,13 @@ export default function TimePlannerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Planning Suggestions Dialog */}
-      <Dialog open={showPlanningDialog} onOpenChange={setShowPlanningDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" data-testid="dialog-planning-suggestions">
-          <DialogHeader>
-            <DialogTitle data-testid="text-planning-title">Proposte Pianificazione Settimanale</DialogTitle>
-            <DialogDescription data-testid="text-planning-description">
-              L'AI ha generato {planningSuggestions.length} planning windows basate sul tuo template
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {planningSuggestions.map((suggestion, index) => (
-              <Card key={index} data-testid={`card-suggestion-${index}`}>
-                <CardHeader>
-                  <CardTitle className="text-base" data-testid={`text-suggestion-name-${index}`}>
-                    {suggestion.name}
-                  </CardTitle>
-                  <CardDescription data-testid={`text-suggestion-project-${index}`}>
-                    Area: {suggestion.interestAreaName}
-                    {suggestion.projectName && ` • Progetto: ${suggestion.projectName}`}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Orario:</span> {suggestion.startTime} - {suggestion.endTime}
-                    </div>
-                    <div>
-                      <span className="font-medium">Giorni:</span> {suggestion.daysOfWeek.map((d: number) => 
-                        ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'][d - 1]
-                      ).join(', ')}
-                    </div>
-                    <div>
-                      <span className="font-medium">Periodo:</span> {new Date(suggestion.startDate).toLocaleDateString()} - {new Date(suggestion.endDate).toLocaleDateString()}
-                    </div>
-                    <div>
-                      <span className="font-medium">Ricorrenza:</span> {suggestion.recurrenceType === 'weekly' ? 'Settimanale' : 'Singola'}
-                    </div>
-                  </div>
-                  <div className="pt-2 text-sm text-muted-foreground" data-testid={`text-suggestion-reasoning-${index}`}>
-                    <span className="font-medium">Motivazione:</span> {suggestion.reasoning}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowPlanningDialog(false)}
-              data-testid="button-close-planning"
-            >
-              Chiudi
-            </Button>
-            <Button
-              onClick={() => {
-                toast({
-                  title: "Funzionalità in arrivo",
-                  description: "La creazione automatica di planning windows sarà disponibile a breve",
-                });
-                setShowPlanningDialog(false);
-              }}
-              data-testid="button-apply-planning"
-            >
-              Applica Pianificazione
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Planning Chat Dialog */}
+      <PlanningChatDialog
+        open={showPlanningDialog}
+        onOpenChange={setShowPlanningDialog}
+        initialSuggestions={planningSuggestions}
+        onApply={handleApplyPlanning}
+      />
     </div>
   );
 }
