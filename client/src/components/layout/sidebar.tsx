@@ -3,7 +3,7 @@ import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, CheckSquare, Calendar, User, LogOut, Sparkles, Tag } from "lucide-react";
+import { FolderOpen, CheckSquare, Calendar, User, LogOut, Sparkles, Tag, Trophy } from "lucide-react";
 import logoSymbol from "@assets/ChatGPT Image 8 ott 2025, 11_45_12_1759921521136.png";
 
 // Main navigation
@@ -12,6 +12,7 @@ const getDefaultNavigation = (t: any) => [
   { id: "t0", name: "Mappa del Tempo", href: "/time-planner", icon: Calendar, testId: "nav-time-planner" },
   { id: "1", name: t("nav.projects"), href: "/projects", icon: FolderOpen, testId: "nav-projects" },
   { id: "2", name: t("nav.tasks"), href: "/tasks", icon: CheckSquare, testId: "nav-tasks" },
+  { id: "gam", name: "Gamification", href: "/gamification", icon: Trophy, testId: "nav-gamification" },
   { id: "5", name: t("nav.proposals"), href: "/proposals", icon: Sparkles, testId: "nav-proposals" },
 ];
 

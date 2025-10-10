@@ -31,6 +31,7 @@ import { MessageLogService } from "./message-log-service";
 import { gmailService } from "./gmail-service";
 import { AttachmentsService } from "./attachments-service";
 import { EmailForwardCleaner } from './email-forward-cleaner';
+import { GamificationService } from './gamification-service';
 
 // Helper function to extract organizationId from request header
 function getOrganizationId(req: any): string {
@@ -5052,13 +5053,14 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
   // GAMIFICATION API ENDPOINTS
   // ============================================================================
 
-  // Get user stats
+  // Get user summary (stats, levels, events, achievements, streaks)
   app.get("/api/gamification/stats", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const organizationId = getOrganizationId(req);
     
-    const stats = await storage.ensureUserStats(req.user!.id, organizationId);
-    res.json(stats);
+    const gamificationService = new GamificationService(storage);
+    const summary = await gamificationService.getUserSummary(req.user!.id, organizationId);
+    res.json(summary);
   });
 
   // Get point events history

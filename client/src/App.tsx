@@ -30,6 +30,7 @@ import EmailAccountsPage from "@/pages/email-accounts-page";
 import AccountPage from "@/pages/account-page";
 import TimePlannerPage from "@/pages/time-planner-page";
 import InterestAreasPage from "@/pages/interest-areas-page";
+import GamificationPage from "@/pages/gamification-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -51,6 +52,7 @@ function Router() {
       <ProtectedRoute path="/planning-calendar" component={GlobalCalendarPage} />
       <ProtectedRoute path="/time-planner" component={TimePlannerPage} />
       <ProtectedRoute path="/interest-areas" component={InterestAreasPage} />
+      <ProtectedRoute path="/gamification" component={GamificationPage} />
       <ProtectedRoute path="/timesheet" component={TimesheetPage} />
       <ProtectedRoute path="/timesheets" component={TimesheetsPage} />
       <ProtectedRoute path="/messages" component={MessagesPage} />
