@@ -1,10 +1,13 @@
 import { useMemo, useState, type ComponentType } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
-  ChevronLeft, ChevronRight, 
+  ChevronLeft, ChevronRight, X,
   Calendar, FolderTree, Clock,
   Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles,
   Book, BookOpen, Coffee, Camera, Plane, Car, ShoppingBag, Users, Star, Zap,
@@ -73,11 +76,45 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('month');
   const [hoveredWindowId, setHoveredWindowId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [windowToDelete, setWindowToDelete] = useState<PlanningWindow | null>(null);
+  
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   // Fetch all planning windows for the user
   const { data: planningWindowsWithProject, isLoading } = useQuery<PlanningWindowWithProject[]>({
     queryKey: ["/api/planning-windows", "user"],
   });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/planning-windows/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/planning-windows"] });
+      setShowDeleteDialog(false);
+      setWindowToDelete(null);
+      toast({
+        title: "Pianificazione eliminata",
+        description: "La pianificazione è stata eliminata con successo",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Errore",
+        description: "Impossibile eliminare la pianificazione",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteClick = (e: React.MouseEvent, window: PlanningWindow) => {
+    e.stopPropagation(); // Prevent window selection
+    setWindowToDelete(window);
+    setShowDeleteDialog(true);
+  };
 
   // Build project hierarchy map
   const projectHierarchy = useMemo(() => {
@@ -612,7 +649,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
               }}
             >
               <div 
-                className={`${hoveredWindowId === instance.window.id ? 'ring-2 ring-offset-1 ring-primary' : ''} hover:opacity-80 rounded border h-full w-full ${hasChildren ? 'border-2 border-dashed' : ''}`}
+                className={`${hoveredWindowId === instance.window.id ? 'ring-2 ring-offset-1 ring-primary' : ''} hover:opacity-80 rounded border h-full w-full ${hasChildren ? 'border-2 border-dashed' : ''} relative group`}
                 style={getProjectColorStyle(getPlanningWindowColor({ project: instance.project, interestArea: instance.interestArea }), level)}
                 onMouseEnter={() => setHoveredWindowId(instance.window.id)}
                 onMouseLeave={() => setHoveredWindowId(null)}
@@ -627,6 +664,16 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                     </div>
                   );
                 })()}
+                {/* Delete Button - visible on hover */}
+                {height >= 20 && (
+                  <button
+                    onClick={(e) => handleDeleteClick(e, instance.window)}
+                    className="absolute top-0.5 right-0.5 p-0.5 rounded bg-destructive/90 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                    data-testid={`button-delete-planning-${instance.window.id}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -1002,6 +1049,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
@@ -1133,5 +1181,27 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
         </div>
       </CardContent>
     </Card>
+
+    <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialogContent data-testid="dialog-delete-planning">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Eliminare la pianificazione?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Sei sicuro di voler eliminare "{windowToDelete?.name}"? Questa azione non può essere annullata.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel data-testid="button-cancel-delete">Annulla</AlertDialogCancel>
+          <AlertDialogAction
+            data-testid="button-confirm-delete"
+            onClick={() => windowToDelete && deleteMutation.mutate(windowToDelete.id)}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Elimina
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
