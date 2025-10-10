@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Plus, FileText, Sparkles } from "lucide-react";
+import { Save, Plus, FileText, Sparkles, Pencil } from "lucide-react";
 import { InteractiveTimeAllocationPieChart, type TimeAllocation } from "@/components/planner/interactive-time-allocation-pie-chart";
 import { PlanningChatDialog } from "@/components/planner/planning-chat-dialog";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
@@ -29,6 +30,17 @@ export default function TimePlannerPage() {
   const [currentAllocations, setCurrentAllocations] = useState<TimeAllocation[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [planningSuggestions, setPlanningSuggestions] = useState<any[]>([]);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [windowToEdit, setWindowToEdit] = useState<PlanningWindow | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    startTime: '09:00',
+    endTime: '17:00',
+    workingHoursPerDay: 8,
+    notes: '',
+    isActive: true,
+    propagateUntil: '',
+  });
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -250,6 +262,56 @@ export default function TimePlannerPage() {
       });
     },
   });
+
+  // Edit planning window mutation
+  const editPlanningWindowMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest("PUT", `/api/planning-windows/${id}/update-and-recreate-future`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/planning-windows"] });
+      setShowEditDialog(false);
+      setWindowToEdit(null);
+      toast({
+        title: "Planning window modificata",
+        description: "La planning window è stata modificata con successo",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Errore",
+        description: "Impossibile modificare la planning window",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditClick = (window: PlanningWindow) => {
+    setWindowToEdit(window);
+    setEditFormData({
+      name: window.name,
+      startTime: window.startTime,
+      endTime: window.endTime,
+      workingHoursPerDay: window.workingHoursPerDay,
+      notes: window.notes || '',
+      isActive: window.isActive,
+      propagateUntil: '',
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!windowToEdit) return;
+    
+    editPlanningWindowMutation.mutate({
+      id: windowToEdit.id,
+      data: {
+        ...editFormData,
+        propagateUntil: editFormData.propagateUntil || undefined,
+      },
+    });
+  };
 
   // Apply Planning Windows Mutation
   const applyPlanningMutation = useMutation({
@@ -485,15 +547,25 @@ export default function TimePlannerPage() {
                                 </div>
                               </CardDescription>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deletePlanningWindowMutation.mutate(window.id)}
-                              disabled={deletePlanningWindowMutation.isPending}
-                              data-testid={`button-delete-${window.id}`}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditClick(window)}
+                                data-testid={`button-edit-${window.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deletePlanningWindowMutation.mutate(window.id)}
+                                disabled={deletePlanningWindowMutation.isPending}
+                                data-testid={`button-delete-${window.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
                         </CardHeader>
                         {window.notes && (
@@ -571,6 +643,113 @@ export default function TimePlannerPage() {
         initialSuggestions={planningSuggestions}
         onApply={handleApplyPlanning}
       />
+
+      {/* Edit Planning Window Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-edit-planning">
+          <DialogHeader>
+            <DialogTitle>Modifica Planning Window</DialogTitle>
+            <DialogDescription>
+              Modifica la pianificazione "{windowToEdit?.name}". Le istanze future senza progetti verranno ricreate con i nuovi dati.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit}>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Nome</Label>
+                <Input
+                  id="edit-name"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  required
+                  data-testid="input-edit-name"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-start-time">Ora inizio</Label>
+                  <Input
+                    id="edit-start-time"
+                    type="time"
+                    value={editFormData.startTime}
+                    onChange={(e) => setEditFormData({ ...editFormData, startTime: e.target.value })}
+                    required
+                    data-testid="input-edit-start-time"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-end-time">Ora fine</Label>
+                  <Input
+                    id="edit-end-time"
+                    type="time"
+                    value={editFormData.endTime}
+                    onChange={(e) => setEditFormData({ ...editFormData, endTime: e.target.value })}
+                    required
+                    data-testid="input-edit-end-time"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-hours">Ore lavorative al giorno</Label>
+                <Input
+                  id="edit-hours"
+                  type="number"
+                  min="1"
+                  max="24"
+                  value={editFormData.workingHoursPerDay}
+                  onChange={(e) => setEditFormData({ ...editFormData, workingHoursPerDay: Number(e.target.value) })}
+                  required
+                  data-testid="input-edit-hours"
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-notes">Note</Label>
+                <Textarea
+                  id="edit-notes"
+                  value={editFormData.notes}
+                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  placeholder="Note opzionali..."
+                  data-testid="input-edit-notes"
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-propagate">Propaga fino a (opzionale)</Label>
+                <Input
+                  id="edit-propagate"
+                  type="date"
+                  value={editFormData.propagateUntil}
+                  onChange={(e) => setEditFormData({ ...editFormData, propagateUntil: e.target.value })}
+                  min={windowToEdit?.startDate ? format(new Date(windowToEdit.startDate), 'yyyy-MM-dd') : undefined}
+                  data-testid="input-edit-propagate"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="edit-active"
+                  checked={editFormData.isActive}
+                  onCheckedChange={(checked) => setEditFormData({ ...editFormData, isActive: checked })}
+                  data-testid="switch-edit-active"
+                />
+                <Label htmlFor="edit-active">Attivo</Label>
+              </div>
+            </div>
+            
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)} data-testid="button-cancel-edit">
+                Annulla
+              </Button>
+              <Button type="submit" disabled={editPlanningWindowMutation.isPending} data-testid="button-confirm-edit">
+                {editPlanningWindowMutation.isPending ? "Salvataggio..." : "Salva modifiche"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
