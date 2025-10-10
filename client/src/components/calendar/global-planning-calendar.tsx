@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -78,6 +79,8 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
   const [hoveredWindowId, setHoveredWindowId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [windowToDelete, setWindowToDelete] = useState<PlanningWindow | null>(null);
+  const [selectedWindowIds, setSelectedWindowIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -110,10 +113,61 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     },
   });
 
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map(id => apiRequest("DELETE", `/api/planning-windows/${id}`)));
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/planning-windows"] });
+      setShowBulkDeleteDialog(false);
+      setSelectedWindowIds(new Set());
+      toast({
+        title: "Pianificazioni eliminate",
+        description: `${ids.length} pianificazioni eliminate con successo`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Errore",
+        description: "Impossibile eliminare le pianificazioni",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDeleteClick = (e: React.MouseEvent, window: PlanningWindow) => {
     e.stopPropagation(); // Prevent window selection
     setWindowToDelete(window);
     setShowDeleteDialog(true);
+  };
+
+  const handleToggleSelection = (windowId: string) => {
+    const newSelection = new Set(selectedWindowIds);
+    if (newSelection.has(windowId)) {
+      newSelection.delete(windowId);
+    } else {
+      newSelection.add(windowId);
+    }
+    setSelectedWindowIds(newSelection);
+  };
+
+  const handleSelectAll = () => {
+    if (!planningWindowsWithProject) return;
+    const allIds = new Set(planningWindowsWithProject.map(w => w.id));
+    setSelectedWindowIds(allIds);
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedWindowIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    setShowBulkDeleteDialog(true);
+  };
+
+  const confirmBulkDelete = () => {
+    bulkDeleteMutation.mutate(Array.from(selectedWindowIds));
   };
 
   // Build project hierarchy map
@@ -654,6 +708,30 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                 onMouseEnter={() => setHoveredWindowId(instance.window.id)}
                 onMouseLeave={() => setHoveredWindowId(null)}
               >
+                {/* Checkbox - visible on hover */}
+                {height >= 20 && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleSelection(instance.window.id);
+                    }}
+                    className="absolute top-0.5 left-0.5 p-0.5 rounded bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    data-testid={`checkbox-select-planning-${instance.window.id}`}
+                  >
+                    <Checkbox
+                      checked={selectedWindowIds.has(instance.window.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          handleToggleSelection(instance.window.id);
+                        } else {
+                          handleToggleSelection(instance.window.id);
+                        }
+                      }}
+                      className="h-3 w-3"
+                    />
+                  </div>
+                )}
+                
                 {/* Icona area di interesse per altezza sufficiente */}
                 {height >= 16 && instance.interestArea?.icon && (() => {
                   const IconComponent = getIconComponent(instance.interestArea.icon);
@@ -1059,6 +1137,38 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
           </div>
           
           <div className="flex items-center gap-4">
+            {/* Bulk actions */}
+            {selectedWindowIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{selectedWindowIds.size} selezionate</Badge>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleSelectAll}
+                  data-testid="button-select-all"
+                >
+                  Seleziona tutto
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleDeselectAll}
+                  data-testid="button-deselect-all"
+                >
+                  Deseleziona
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleBulkDelete}
+                  data-testid="button-bulk-delete"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Elimina selezionate
+                </Button>
+              </div>
+            )}
+            
             {/* View buttons */}
             <div className="flex gap-1 bg-muted rounded-lg p-1">
               <Button
@@ -1198,6 +1308,27 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             Elimina
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+      <AlertDialogContent data-testid="dialog-bulk-delete-planning">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Eliminare le pianificazioni selezionate?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Sei sicuro di voler eliminare {selectedWindowIds.size} pianificazioni? Questa azione non può essere annullata.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel data-testid="button-cancel-bulk-delete">Annulla</AlertDialogCancel>
+          <AlertDialogAction
+            data-testid="button-confirm-bulk-delete"
+            onClick={confirmBulkDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Elimina {selectedWindowIds.size} pianificazioni
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
