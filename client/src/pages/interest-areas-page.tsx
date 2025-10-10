@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import type { InterestArea } from "@shared/schema";
 import { insertInterestAreaSchema } from "@shared/schema";
+import { InterestAreaRoadmapDialog } from "@/components/planner/interest-area-roadmap-dialog";
 
 // Icon mapping completo
 const iconMap = {
@@ -193,6 +194,8 @@ export default function InterestAreasPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRoadmapDialog, setShowRoadmapDialog] = useState(false);
+  const [roadmapArea, setRoadmapArea] = useState<InterestArea | null>(null);
   const [selectedArea, setSelectedArea] = useState<InterestArea | null>(null);
   const [iconSearch, setIconSearch] = useState("");
 
@@ -484,6 +487,18 @@ export default function InterestAreasPage() {
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
+                              data-testid={`button-roadmap-area-${area.id}`}
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setRoadmapArea(area);
+                                setShowRoadmapDialog(true);
+                              }}
+                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                            >
+                              <Sparkles className="h-4 w-4" />
+                            </Button>
+                            <Button
                               data-testid={`button-edit-area-${area.id}`}
                               variant="ghost"
                               size="sm"
@@ -709,6 +724,63 @@ export default function InterestAreasPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Roadmap AI Dialog */}
+      <InterestAreaRoadmapDialog
+        open={showRoadmapDialog}
+        onOpenChange={setShowRoadmapDialog}
+        interestArea={roadmapArea}
+        onRoadmapAccepted={async (roadmap) => {
+          if (!roadmapArea) return;
+          
+          try {
+            // Create projects and tasks from roadmap
+            for (const roadmapProject of roadmap) {
+              // Create project
+              const projectRes = await apiRequest("POST", "/api/projects", {
+                name: roadmapProject.name,
+                description: roadmapProject.description,
+                interestAreaId: roadmapArea.id,
+                estimatedEffort: roadmapProject.estimatedEffort,
+                status: "planning",
+                userId: "current",
+                organizationId: currentOrganizationId,
+              });
+
+              const project = await projectRes.json();
+
+              // Create tasks for this project
+              for (const roadmapTask of roadmapProject.tasks) {
+                await apiRequest("POST", "/api/tasks", {
+                  title: roadmapTask.title,
+                  description: roadmapTask.description,
+                  projectId: project.id,
+                  estimatedEffort: roadmapTask.estimatedEffort,
+                  priority: roadmapTask.priority,
+                  status: "todo",
+                  userId: "current",
+                  organizationId: currentOrganizationId,
+                });
+              }
+            }
+
+            // Invalidate queries
+            queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+
+            toast({
+              title: "Roadmap Creata!",
+              description: `${roadmap.length} progetti e relativi task sono stati creati con successo`,
+            });
+          } catch (error: any) {
+            toast({
+              title: "Errore",
+              description: error.message || "Impossibile creare la roadmap",
+              variant: "destructive",
+            });
+          }
+        }}
+      />
     </div>
   );
 }

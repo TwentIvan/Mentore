@@ -415,3 +415,123 @@ Sii collaborativo e aiuta l'utente a ottimizzare la sua pianificazione.`;
     hasUpdates: result.hasUpdates || false,
   };
 }
+
+export interface RoadmapProject {
+  name: string;
+  description: string;
+  estimatedEffort: number; // in ore
+  tasks: RoadmapTask[];
+}
+
+export interface RoadmapTask {
+  title: string;
+  description: string;
+  estimatedEffort: number; // in ore
+  priority: "low" | "medium" | "high";
+}
+
+/**
+ * Chat per generare percorsi/roadmap per un'area di interesse specifica
+ */
+export async function chatInterestAreaRoadmap({
+  interestAreaName,
+  interestAreaDescription,
+  userMessage,
+  conversationHistory = [],
+  existingProjects = [],
+}: {
+  interestAreaName: string;
+  interestAreaDescription?: string;
+  userMessage: string;
+  conversationHistory?: ConversationMessage[];
+  existingProjects?: { name: string; description?: string }[];
+}): Promise<{
+  message: string;
+  hasRoadmap: boolean;
+  roadmap?: RoadmapProject[];
+}> {
+  const systemPrompt = `Sei un assistente AI esperto di pianificazione e sviluppo personale. 
+Il tuo compito è aiutare l'utente a creare percorsi di apprendimento e sviluppo (roadmap) per l'area di interesse "${interestAreaName}".
+
+AREA DI INTERESSE:
+- Nome: ${interestAreaName}
+${interestAreaDescription ? `- Descrizione: ${interestAreaDescription}` : ''}
+
+${existingProjects.length > 0 ? `
+PROGETTI ESISTENTI:
+${existingProjects.map(p => `- ${p.name}${p.description ? ': ' + p.description : ''}`).join('\n')}
+` : ''}
+
+COME FUNZIONA LA CONVERSAZIONE:
+1. Ascolta le richieste dell'utente per questa area di interesse
+2. Fai domande per capire meglio obiettivi, livello attuale, tempo disponibile
+3. Quando hai sufficienti informazioni, proponi una roadmap strutturata
+
+ROADMAP STRUCTURE:
+Una roadmap è composta da:
+- **Progetti**: Macro-obiettivi o fasi del percorso (es: "Fondamentali di React", "Portfolio Professionale")
+- **Task**: Azioni concrete per completare ogni progetto (es: "Studiare useState e useEffect", "Creare 3 componenti riutilizzabili")
+
+REGOLE PER LA ROADMAP:
+- Sii pratico e realistico con le stime di tempo
+- Ordina progetti in sequenza logica (dal più basilare al più avanzato)
+- Per ogni task indica priorità (low/medium/high)
+- Stima ore realistiche (task: 1-8 ore, progetti: somma dei task)
+- Evita duplicati con progetti esistenti
+- Adatta la roadmap al livello e tempo disponibile dell'utente
+
+OUTPUT FORMAT:
+Rispondi SEMPRE in formato JSON:
+{
+  "message": "Risposta conversazionale chiara e utile",
+  "hasRoadmap": true/false,
+  "roadmap": [ // Solo se hasRoadmap è true
+    {
+      "name": "Nome Progetto",
+      "description": "Descrizione chiara del progetto",
+      "estimatedEffort": 20, // ore totali
+      "tasks": [
+        {
+          "title": "Titolo task",
+          "description": "Descrizione dettagliata",
+          "estimatedEffort": 5, // ore
+          "priority": "high|medium|low"
+        }
+      ]
+    }
+  ]
+}
+
+STILE DI COMUNICAZIONE:
+- Friendly e incoraggiante
+- Pratico e orientato all'azione
+- Chiedi chiarimenti quando necessario
+- Celebra i progressi e motiva
+- Usa italiano naturale e professionale`;
+
+  const messages: any[] = [
+    { role: "system", content: systemPrompt },
+  ];
+
+  // Aggiungi lo storico della conversazione
+  conversationHistory.forEach(msg => {
+    messages.push({ role: msg.role, content: msg.content });
+  });
+
+  // Aggiungi il nuovo messaggio dell'utente
+  messages.push({ role: "user", content: userMessage });
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages,
+    response_format: { type: "json_object" },
+  });
+
+  const result = JSON.parse(response.choices[0].message.content || "{}");
+  
+  return {
+    message: result.message || "Mi dispiace, non ho capito. Puoi riformulare?",
+    hasRoadmap: result.hasRoadmap || false,
+    roadmap: result.roadmap || [],
+  };
+}

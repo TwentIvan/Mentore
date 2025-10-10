@@ -24,7 +24,7 @@ import {
 } from "@shared/schema";
 import { aiService } from "./ai-service";
 import { initializeEmailService, getEmailService } from "./imap-service";
-import { suggestGenericInterestAreas, suggestQuickTimeAllocation, suggestTimeAllocation, suggestWeeklyPlanning, chatAboutPlanning, type ConversationMessage } from "./ai-assistant";
+import { suggestGenericInterestAreas, suggestQuickTimeAllocation, suggestTimeAllocation, suggestWeeklyPlanning, chatAboutPlanning, chatInterestAreaRoadmap, type ConversationMessage } from "./ai-assistant";
 import { AuditService } from "./audit-service";
 import { MessageLogService } from "./message-log-service";
 import { gmailService } from "./gmail-service";
@@ -4782,6 +4782,51 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
       res.json(response);
     } catch (error: any) {
       console.error("Error in planning chat:", error);
+      res.status(500).json({ error: error.message || "Failed to process chat message" });
+    }
+  });
+
+  // AI Assistant - Chat Interest Area Roadmap
+  app.post("/api/ai/interest-area-roadmap-chat", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { interestAreaId, userMessage, conversationHistory } = req.body;
+      
+      if (!interestAreaId || typeof interestAreaId !== 'string') {
+        return res.status(400).json({ error: "interestAreaId is required" });
+      }
+
+      if (!userMessage || typeof userMessage !== 'string') {
+        return res.status(400).json({ error: "userMessage is required and must be a string" });
+      }
+
+      // Get interest area details
+      const interestArea = await storage.getInterestArea(interestAreaId, req.user!.id);
+      if (!interestArea) {
+        return res.status(404).json({ error: "Interest area not found" });
+      }
+
+      // Get existing projects for context
+      const organizationId = getOrganizationId(req);
+      const allProjects = await storage.getProjects(req.user!.id, organizationId);
+      const existingProjects = allProjects
+        .filter(p => p.interestAreaId === interestAreaId)
+        .map(p => ({ name: p.name, description: p.description || undefined }));
+
+      const history = conversationHistory && Array.isArray(conversationHistory) ? conversationHistory : [];
+      
+      const response = await chatInterestAreaRoadmap({
+        interestAreaName: interestArea.name,
+        interestAreaDescription: interestArea.description || undefined,
+        userMessage,
+        conversationHistory: history,
+        existingProjects,
+      });
+      
+      res.json(response);
+    } catch (error: any) {
+      console.error("Error in interest area roadmap chat:", error);
       res.status(500).json({ error: error.message || "Failed to process chat message" });
     }
   });
