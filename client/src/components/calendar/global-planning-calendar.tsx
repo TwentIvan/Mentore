@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  ChevronLeft, ChevronRight, X,
+  ChevronLeft, ChevronRight, X, Pencil,
   Calendar, FolderTree, Clock,
   Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles,
   Book, BookOpen, Coffee, Camera, Plane, Car, ShoppingBag, Users, Star, Zap,
@@ -81,6 +81,8 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
   const [windowToDelete, setWindowToDelete] = useState<PlanningWindow | null>(null);
   const [selectedWindowIds, setSelectedWindowIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [windowToEdit, setWindowToEdit] = useState<PlanningWindow | null>(null);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -140,6 +142,12 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     e.stopPropagation(); // Prevent window selection
     setWindowToDelete(window);
     setShowDeleteDialog(true);
+  };
+
+  const handleEditClick = (e: React.MouseEvent, window: PlanningWindow) => {
+    e.stopPropagation(); // Prevent window selection
+    setWindowToEdit(window);
+    setShowEditDialog(true);
   };
 
   const handleToggleSelection = (windowId: string) => {
@@ -715,18 +723,11 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                       e.stopPropagation();
                       handleToggleSelection(instance.window.id);
                     }}
-                    className="absolute top-0.5 left-0.5 p-0.5 rounded bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    className="absolute top-0.5 left-0.5 p-0.5 rounded bg-background/90 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
                     data-testid={`checkbox-select-planning-${instance.window.id}`}
                   >
                     <Checkbox
                       checked={selectedWindowIds.has(instance.window.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          handleToggleSelection(instance.window.id);
-                        } else {
-                          handleToggleSelection(instance.window.id);
-                        }
-                      }}
                       className="h-3 w-3"
                     />
                   </div>
@@ -742,6 +743,17 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                     </div>
                   );
                 })()}
+                {/* Edit Button - visible on hover */}
+                {height >= 20 && (
+                  <button
+                    onClick={(e) => handleEditClick(e, instance.window)}
+                    className="absolute top-0.5 right-6 p-0.5 rounded bg-primary/90 text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary"
+                    data-testid={`button-edit-planning-${instance.window.id}`}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+                
                 {/* Delete Button - visible on hover */}
                 {height >= 20 && (
                   <button
