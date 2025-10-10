@@ -34,6 +34,7 @@ type CalendarView = 'month' | 'week' | 'day';
 export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlanningCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('month');
+  const [hoveredWindowId, setHoveredWindowId] = useState<string | null>(null);
   
   // Fetch all planning windows for the user
   const { data: planningWindowsWithProject, isLoading } = useQuery<PlanningWindowWithProject[]>({
@@ -453,26 +454,11 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
               }}
             >
               <div 
-                className={`hover:opacity-80 text-xs p-1 rounded border h-full overflow-hidden flex flex-col justify-between ${hasChildren ? 'border-2 border-dashed' : ''}`}
+                className={`${hoveredWindowId === instance.window.id ? 'ring-2 ring-offset-1 ring-primary' : ''} hover:opacity-80 rounded border h-full overflow-hidden ${hasChildren ? 'border-2 border-dashed' : ''}`}
                 style={instance.project ? getProjectColorStyle(getProjectHierarchyColor(instance.project), level) : { backgroundColor: '#E5E7EB', borderColor: '#D1D5DB', color: '#374151' }}
-              >
-                <div>
-                  <div className="font-medium truncate">
-                    {instance.window.name}
-                  </div>
-                  <div className="text-[10px] opacity-75">
-                    {instance.startTime} - {instance.endTime}
-                  </div>
-                </div>
-                <div className="text-[9px] opacity-75 truncate">
-                  {instance.project?.name || 'Nessun progetto'}
-                  {level > 0 && (
-                    <span className="ml-1">
-                      {'→'.repeat(level)}
-                    </span>
-                  )}
-                </div>
-              </div>
+                onMouseEnter={() => setHoveredWindowId(instance.window.id)}
+                onMouseLeave={() => setHoveredWindowId(null)}
+              />
             </div>
           );
           
@@ -784,6 +770,22 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     );
   }
 
+  // Get unique planning windows for legend
+  const uniqueWindows = useMemo(() => {
+    if (!planningWindowsWithProject) return [];
+    
+    const windowMap = new Map<string, { window: PlanningWindow; project: Project | null }>();
+    planningWindowsWithProject.forEach(({ project, ...window }) => {
+      if (!windowMap.has(window.id)) {
+        windowMap.set(window.id, { window, project });
+      }
+    });
+    
+    return Array.from(windowMap.values()).sort((a, b) => 
+      a.window.name.localeCompare(b.window.name)
+    );
+  }, [planningWindowsWithProject]);
+
   return (
     <Card>
       <CardHeader>
@@ -839,35 +841,70 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
       </CardHeader>
       
       <CardContent>
-        {view === 'month' && renderMonthView()}
-        {view === 'week' && renderWeekView()}
-        {view === 'day' && renderDayView()}
-        
-        {expandedInstances.length === 0 && (
-          <div className="text-center text-muted-foreground py-8">
-            Nessuna finestra di pianificazione per questo periodo
+        <div className="flex gap-4">
+          {/* Main Calendar */}
+          <div className="flex-1">
+            {view === 'month' && renderMonthView()}
+            {view === 'week' && renderWeekView()}
+            {view === 'day' && renderDayView()}
+            
+            {expandedInstances.length === 0 && (
+              <div className="text-center text-muted-foreground py-8">
+                Nessuna finestra di pianificazione per questo periodo
+              </div>
+            )}
           </div>
-        )}
-        
-        {/* Legend */}
-        <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-          <h4 className="text-sm font-medium mb-2">Legenda Gerarchia Progetti:</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-blue-200 border border-blue-300"></div>
-              <span>Progetti Principali</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green-200 border border-green-300"></div>
-              <span>Sotto-progetti (Livello 1)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-purple-200 border border-purple-300"></div>
-              <span>Sotto-progetti (Livello 2)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-orange-200 border border-orange-300"></div>
-              <span>Sotto-progetti (Livello 3+)</span>
+          
+          {/* Legend Sidebar */}
+          <div className="w-64 border-l border-border pl-4">
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Calendari
+            </h4>
+            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              {uniqueWindows.map(({ window, project }) => (
+                <div
+                  key={window.id}
+                  className={`p-2 rounded-lg border cursor-pointer transition-all ${
+                    hoveredWindowId === window.id 
+                      ? 'ring-2 ring-primary ring-offset-1 bg-muted' 
+                      : 'hover:bg-muted/50'
+                  }`}
+                  style={{
+                    borderColor: project ? getProjectHierarchyColor(project) : '#D1D5DB',
+                    backgroundColor: hoveredWindowId === window.id 
+                      ? undefined 
+                      : (project ? `${getProjectHierarchyColor(project)}15` : '#F3F4F6')
+                  }}
+                  onMouseEnter={() => setHoveredWindowId(window.id)}
+                  onMouseLeave={() => setHoveredWindowId(null)}
+                  onClick={() => onWindowSelect?.(window)}
+                  data-testid={`legend-item-${window.id}`}
+                >
+                  <div className="flex items-start gap-2">
+                    <div 
+                      className="w-4 h-4 rounded border flex-shrink-0 mt-0.5"
+                      style={{ 
+                        backgroundColor: project ? getProjectHierarchyColor(project) : '#D1D5DB',
+                        borderColor: project ? getProjectHierarchyColor(project) : '#9CA3AF'
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">
+                        {window.name}
+                      </div>
+                      {project && (
+                        <div className="text-xs text-muted-foreground truncate mt-0.5">
+                          {project.name}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {window.startTime} - {window.endTime}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
