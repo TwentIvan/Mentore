@@ -27,7 +27,7 @@ function NavItem({ item, isActive }: { item: any; isActive: boolean }) {
       onClick={() => setLocation(item.href)}
     >
       <div 
-        className="flex items-center px-4 py-2 rounded-lg nav-box transition-all flex-1 group-hover:bg-accent" 
+        className="flex items-center px-4 py-1.5 rounded-lg nav-box transition-all flex-1 group-hover:bg-accent" 
         style={{ 
           backgroundColor: isActive ? 'hsl(160, 15%, 55%, 0.3)' : 'hsl(160, 15%, 55%, 0.1)', 
           border: '1px solid hsl(160, 15%, 55%, 0.2)', 
@@ -76,7 +76,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-1">
         {/* Main Navigation */}
         {navigation.map((item: any) => {
           const isActive = location === item.href;
