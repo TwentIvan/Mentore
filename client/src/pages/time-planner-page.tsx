@@ -347,7 +347,7 @@ export default function TimePlannerPage() {
   // Bulk delete mutation
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map(id => apiRequest("DELETE", `/api/planning-windows/${id}`, null)));
+      await Promise.all(ids.map(id => apiRequest("DELETE", `/api/planning-windows/${id}`)));
     },
     onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ["/api/planning-windows"] });
