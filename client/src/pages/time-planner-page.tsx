@@ -11,7 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Plus, FileText, Sparkles, Pencil } from "lucide-react";
+import { Save, Plus, FileText, Sparkles, Pencil, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { InteractiveTimeAllocationPieChart, type TimeAllocation } from "@/components/planner/interactive-time-allocation-pie-chart";
 import { PlanningChatDialog } from "@/components/planner/planning-chat-dialog";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
@@ -41,6 +44,8 @@ export default function TimePlannerPage() {
     isActive: true,
     propagateUntil: '',
   });
+  const [selectedWindowIds, setSelectedWindowIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -313,6 +318,55 @@ export default function TimePlannerPage() {
     });
   };
 
+  const handleToggleSelection = (windowId: string) => {
+    const newSelection = new Set(selectedWindowIds);
+    if (newSelection.has(windowId)) {
+      newSelection.delete(windowId);
+    } else {
+      newSelection.add(windowId);
+    }
+    setSelectedWindowIds(newSelection);
+  };
+
+  const handleSelectAll = () => {
+    setSelectedWindowIds(new Set(planningWindows.map(w => w.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedWindowIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    setShowBulkDeleteDialog(true);
+  };
+
+  const confirmBulkDelete = () => {
+    bulkDeleteMutation.mutate(Array.from(selectedWindowIds));
+  };
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map(id => apiRequest("DELETE", `/api/planning-windows/${id}`, null)));
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/planning-windows"] });
+      setShowBulkDeleteDialog(false);
+      setSelectedWindowIds(new Set());
+      toast({
+        title: "Planning windows eliminate",
+        description: `${ids.length} planning windows eliminate con successo`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Errore",
+        description: "Impossibile eliminare le planning windows",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Apply Planning Windows Mutation
   const applyPlanningMutation = useMutation({
     mutationFn: async (suggestions: any[]) => {
@@ -497,6 +551,44 @@ export default function TimePlannerPage() {
             </TabsContent>
 
             <TabsContent value="windows" className="space-y-4" data-testid="tabcontent-windows">
+              {/* Bulk Actions */}
+              {selectedWindowIds.size > 0 && planningWindows.length > 0 && (
+                <Card>
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary">{selectedWindowIds.size} selezionate</Badge>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={handleSelectAll}
+                          data-testid="button-select-all"
+                        >
+                          Seleziona tutto
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={handleDeselectAll}
+                          data-testid="button-deselect-all"
+                        >
+                          Deseleziona
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={handleBulkDelete}
+                          data-testid="button-bulk-delete"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Elimina selezionate
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {isLoadingWindows ? (
                 <Card data-testid="card-loading-windows">
                   <CardContent className="py-12 text-center">
@@ -523,29 +615,37 @@ export default function TimePlannerPage() {
                       <Card key={window.id} data-testid={`card-window-${window.id}`}>
                         <CardHeader>
                           <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <CardTitle className="text-base mb-1" data-testid={`text-window-name-${window.id}`}>
-                                {window.name}
-                              </CardTitle>
-                              <CardDescription className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span 
-                                    className="inline-block w-3 h-3 rounded-full" 
-                                    style={{ backgroundColor: area?.color || '#999' }}
-                                  />
-                                  <span data-testid={`text-area-${window.id}`}>{area?.name || 'Area sconosciuta'}</span>
-                                </div>
-                                {project && (
-                                  <div className="text-sm text-muted-foreground" data-testid={`text-project-${window.id}`}>
-                                    Progetto: {project.name}
+                            <div className="flex items-start gap-3 flex-1">
+                              <Checkbox
+                                checked={selectedWindowIds.has(window.id)}
+                                onCheckedChange={() => handleToggleSelection(window.id)}
+                                className="mt-1"
+                                data-testid={`checkbox-select-${window.id}`}
+                              />
+                              <div className="flex-1">
+                                <CardTitle className="text-base mb-1" data-testid={`text-window-name-${window.id}`}>
+                                  {window.name}
+                                </CardTitle>
+                                <CardDescription className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span 
+                                      className="inline-block w-3 h-3 rounded-full" 
+                                      style={{ backgroundColor: area?.color || '#999' }}
+                                    />
+                                    <span data-testid={`text-area-${window.id}`}>{area?.name || 'Area sconosciuta'}</span>
                                   </div>
-                                )}
-                                <div className="text-sm" data-testid={`text-dates-${window.id}`}>
-                                  {format(new Date(window.startDate), "d MMM", { locale: it })} - {format(new Date(window.endDate), "d MMM yyyy", { locale: it })}
-                                  <span className="mx-2">•</span>
-                                  {window.startTime} - {window.endTime}
-                                </div>
-                              </CardDescription>
+                                  {project && (
+                                    <div className="text-sm text-muted-foreground" data-testid={`text-project-${window.id}`}>
+                                      Progetto: {project.name}
+                                    </div>
+                                  )}
+                                  <div className="text-sm" data-testid={`text-dates-${window.id}`}>
+                                    {format(new Date(window.startDate), "d MMM", { locale: it })} - {format(new Date(window.endDate), "d MMM yyyy", { locale: it })}
+                                    <span className="mx-2">•</span>
+                                    {window.startTime} - {window.endTime}
+                                  </div>
+                                </CardDescription>
+                              </div>
                             </div>
                             <div className="flex gap-2">
                               <Button
@@ -750,6 +850,28 @@ export default function TimePlannerPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Delete Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent data-testid="dialog-bulk-delete">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare le planning windows selezionate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sei sicuro di voler eliminare {selectedWindowIds.size} planning windows? Questa azione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-bulk-delete">Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-confirm-bulk-delete"
+              onClick={confirmBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Elimina {selectedWindowIds.size} planning windows
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
