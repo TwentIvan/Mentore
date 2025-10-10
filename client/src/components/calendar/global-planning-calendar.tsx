@@ -15,7 +15,8 @@ import {
   Gamepad2, Puzzle, Dice5, Swords, Shield, Crown, Gem, Coins, Banknote, CreditCard,
   Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
   Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
-  Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake
+  Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake,
+  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes, Tool
 } from "lucide-react";
 import { PlanningWindow, Project, InterestArea } from "@shared/schema";
 import { 
@@ -58,7 +59,8 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   Gamepad2, Puzzle, Dice5, Swords, Shield, Crown, Gem, Coins, Banknote, CreditCard,
   Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
   Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
-  Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake
+  Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake,
+  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes, Tool
 };
 
 // Helper to get icon component with fallback
