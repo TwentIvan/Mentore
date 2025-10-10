@@ -1398,6 +1398,215 @@ export type EmailTrainingSelection = typeof emailTrainingSelections.$inferSelect
 export type InsertEmailTrainingSelection = typeof emailTrainingSelections.$inferInsert;
 export const insertEmailTrainingSelectionSchema = createInsertSchema(emailTrainingSelections).omit({ id: true, createdAt: true, updatedAt: true });
 
+// ============================================================================
+// GAMIFICATION SYSTEM
+// ============================================================================
+
+// Event types that generate points/XP
+export const gamificationEventTypeEnum = pgEnum("gamification_event_type", [
+  "task_completed",
+  "task_completed_on_time",
+  "task_completed_early",
+  "project_milestone",
+  "project_completed",
+  "time_tracked",
+  "time_tracking_accurate",
+  "planning_window_created",
+  "planning_window_completed",
+  "streak_milestone",
+  "challenge_completed",
+  "daily_login",
+  "achievement_unlocked"
+]);
+
+// Ledger of all point-generating events
+export const gamificationPointEvents = pgTable("gamification_point_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  eventType: gamificationEventTypeEnum("event_type").notNull(),
+  points: integer("points").notNull(), // Points awarded
+  xp: integer("xp").notNull(), // Experience points
+  sourceType: text("source_type"), // "task", "project", "planning_window", etc.
+  sourceId: uuid("source_id"), // ID of the source entity
+  metadata: jsonb("metadata"), // Additional event data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userCreatedIdx: index("gpe_user_created_idx").on(table.userId, table.createdAt),
+}));
+
+// Aggregated user statistics
+export const userGamificationStats = pgTable("user_gamification_stats", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  totalPoints: integer("total_points").default(0).notNull(),
+  totalXp: integer("total_xp").default(0).notNull(),
+  currentLevel: integer("current_level").default(1).notNull(),
+  currentStreak: integer("current_streak").default(0).notNull(),
+  longestStreak: integer("longest_streak").default(0).notNull(),
+  lastActivityDate: timestamp("last_activity_date"),
+  tasksCompleted: integer("tasks_completed").default(0).notNull(),
+  tasksCompletedOnTime: integer("tasks_completed_on_time").default(0).notNull(),
+  projectsCompleted: integer("projects_completed").default(0).notNull(),
+  totalTimeTracked: integer("total_time_tracked").default(0).notNull(), // in minutes
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userOrgIdx: uniqueIndex("user_org_stats_idx").on(table.userId, table.organizationId),
+}));
+
+// Level definitions
+export const gamificationLevels = pgTable("gamification_levels", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  level: integer("level").notNull().unique(),
+  xpThreshold: integer("xp_threshold").notNull(), // XP required to reach this level
+  title: text("title").notNull(), // "Novizio", "Esperto", "Maestro", etc.
+  icon: text("icon"), // Icon name
+  color: text("color").default("#3B82F6").notNull(),
+  rewards: jsonb("rewards"), // Unlocked features/cosmetics
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Achievement definitions (catalog)
+export const achievementTierEnum = pgEnum("achievement_tier", ["bronze", "silver", "gold", "platinum", "diamond"]);
+
+export const achievementDefinitions = pgTable("achievement_definitions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: text("slug").notNull().unique(), // "first_task", "10_tasks_on_time", etc.
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  tier: achievementTierEnum("tier").default("bronze").notNull(),
+  icon: text("icon").notNull(),
+  color: text("color").default("#3B82F6").notNull(),
+  points: integer("points").default(0).notNull(), // Points awarded when unlocked
+  xp: integer("xp").default(0).notNull(), // XP awarded when unlocked
+  triggerRules: jsonb("trigger_rules").notNull(), // JSON rules for triggering
+  socialShareText: text("social_share_text"), // Text for social sharing
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User unlocked achievements
+export const achievementShareStateEnum = pgEnum("achievement_share_state", ["not_shared", "shared", "pending"]);
+
+export const userAchievements = pgTable("user_achievements", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  achievementId: uuid("achievement_id").references(() => achievementDefinitions.id).notNull(),
+  earnedAt: timestamp("earned_at").defaultNow().notNull(),
+  shareState: achievementShareStateEnum("share_state").default("not_shared").notNull(),
+  evidencePayload: jsonb("evidence_payload"), // Data about how it was earned
+}, (table) => ({
+  userAchievementIdx: uniqueIndex("user_achievement_idx").on(table.userId, table.achievementId),
+}));
+
+// Streaks tracking
+export const streakScopeEnum = pgEnum("streak_scope", ["daily", "weekly"]);
+
+export const streaks = pgTable("streaks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  scope: streakScopeEnum("scope").default("daily").notNull(),
+  currentCount: integer("current_count").default(0).notNull(),
+  longestCount: integer("longest_count").default(0).notNull(),
+  lastEventDate: timestamp("last_event_date"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userScopeIdx: uniqueIndex("user_scope_idx").on(table.userId, table.scope),
+}));
+
+// Challenge definitions (templates)
+export const challengeRecurrenceEnum = pgEnum("challenge_recurrence", ["once", "daily", "weekly", "monthly"]);
+
+export const challengeDefinitions = pgTable("challenge_definitions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  icon: text("icon").notNull(),
+  color: text("color").default("#3B82F6").notNull(),
+  recurrence: challengeRecurrenceEnum("recurrence").default("once").notNull(),
+  targetMetrics: jsonb("target_metrics").notNull(), // { "tasks_completed": 5, "time_tracked": 120 }
+  points: integer("points").default(0).notNull(),
+  xp: integer("xp").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Challenge instances assigned to users
+export const challengeStatusEnum = pgEnum("challenge_status", ["active", "completed", "failed", "expired"]);
+
+export const challengeInstances = pgTable("challenge_instances", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  challengeId: uuid("challenge_id").references(() => challengeDefinitions.id).notNull(),
+  status: challengeStatusEnum("status").default("active").notNull(),
+  progress: jsonb("progress"), // Current progress against target metrics
+  startDate: timestamp("start_date").defaultNow().notNull(),
+  endDate: timestamp("end_date").notNull(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userChallengeIdx: index("user_challenge_idx").on(table.userId, table.status),
+}));
+
+// Milestone events
+export const milestoneEvents = pgTable("milestone_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  milestoneType: text("milestone_type").notNull(), // "project_25_percent", "project_50_percent", etc.
+  sourceType: text("source_type").notNull(), // "project", "task", etc.
+  sourceId: uuid("source_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  celebrated: boolean("celebrated").default(false).notNull(), // Has user seen the celebration?
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  userCreatedIdx: index("me_user_created_idx").on(table.userId, table.createdAt),
+}));
+
+// Types and schemas for gamification
+export type GamificationPointEvent = typeof gamificationPointEvents.$inferSelect;
+export type InsertGamificationPointEvent = typeof gamificationPointEvents.$inferInsert;
+export const insertGamificationPointEventSchema = createInsertSchema(gamificationPointEvents).omit({ id: true, createdAt: true });
+
+export type UserGamificationStats = typeof userGamificationStats.$inferSelect;
+export type InsertUserGamificationStats = typeof userGamificationStats.$inferInsert;
+export const insertUserGamificationStatsSchema = createInsertSchema(userGamificationStats).omit({ id: true, updatedAt: true });
+
+export type GamificationLevel = typeof gamificationLevels.$inferSelect;
+export type InsertGamificationLevel = typeof gamificationLevels.$inferInsert;
+export const insertGamificationLevelSchema = createInsertSchema(gamificationLevels).omit({ id: true, createdAt: true });
+
+export type AchievementDefinition = typeof achievementDefinitions.$inferSelect;
+export type InsertAchievementDefinition = typeof achievementDefinitions.$inferInsert;
+export const insertAchievementDefinitionSchema = createInsertSchema(achievementDefinitions).omit({ id: true, createdAt: true });
+
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertUserAchievement = typeof userAchievements.$inferInsert;
+export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({ id: true, earnedAt: true });
+
+export type Streak = typeof streaks.$inferSelect;
+export type InsertStreak = typeof streaks.$inferInsert;
+export const insertStreakSchema = createInsertSchema(streaks).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type ChallengeDefinition = typeof challengeDefinitions.$inferSelect;
+export type InsertChallengeDefinition = typeof challengeDefinitions.$inferInsert;
+export const insertChallengeDefinitionSchema = createInsertSchema(challengeDefinitions).omit({ id: true, createdAt: true });
+
+export type ChallengeInstance = typeof challengeInstances.$inferSelect;
+export type InsertChallengeInstance = typeof challengeInstances.$inferInsert;
+export const insertChallengeInstanceSchema = createInsertSchema(challengeInstances).omit({ id: true, createdAt: true });
+
+export type MilestoneEvent = typeof milestoneEvents.$inferSelect;
+export type InsertMilestoneEvent = typeof milestoneEvents.$inferInsert;
+export const insertMilestoneEventSchema = createInsertSchema(milestoneEvents).omit({ id: true, createdAt: true });
+
 // Relations for audit logs
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   user: one(users, {
