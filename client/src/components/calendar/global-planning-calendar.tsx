@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar, FolderTree, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, FolderTree, Clock, Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles } from "lucide-react";
 import { PlanningWindow, Project, InterestArea } from "@shared/schema";
 import { 
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, 
@@ -32,6 +32,25 @@ interface ExpandedPlanningInstance {
 }
 
 type CalendarView = 'month' | 'week' | 'day';
+
+// Icon mapping for interest areas (from interest-areas-page.tsx)
+const iconMap: Record<string, ComponentType<{ className?: string }>> = {
+  Tag,
+  Briefcase,
+  GraduationCap,
+  Dumbbell,
+  Heart,
+  Home,
+  Music,
+  Palette,
+  Sparkles,
+};
+
+// Helper to get icon component with fallback
+const getIconComponent = (iconName: string | null | undefined) => {
+  if (!iconName) return null;
+  return iconMap[iconName] || Tag; // Fallback to Tag icon if not found
+};
 
 export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlanningCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -551,7 +570,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
           
           // Calcola proporzioni usando altezza totale cella (140px): 8 ore = 1/3 = ~47px
           const topPosition = relativeTop + (relativeStart / (parentBounds ? (parentBounds.end - parentBounds.start) : minutesInDay)) * relativeHeight;
-          const height = Math.max(20, (durationMinutes / (parentBounds ? (parentBounds.end - parentBounds.start) : minutesInDay)) * relativeHeight);
+          const height = Math.max(8, (durationMinutes / (parentBounds ? (parentBounds.end - parentBounds.start) : minutesInDay)) * relativeHeight);
           
           // Determina se questo è un progetto padre (ha figli) - per ora tutti i progetti level 0 sono padri
           const hasChildren = level === 0 && instances.some(other => other.level > level);
@@ -582,11 +601,15 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                 onMouseLeave={() => setHoveredWindowId(null)}
               >
                 {/* Icona area di interesse per altezza sufficiente */}
-                {height >= 24 && instance.interestArea?.icon && (
-                  <div className="flex items-center justify-center h-full opacity-50">
-                    <span className="text-lg">{instance.interestArea.icon}</span>
-                  </div>
-                )}
+                {height >= 16 && instance.interestArea?.icon && (() => {
+                  const IconComponent = getIconComponent(instance.interestArea.icon);
+                  if (!IconComponent) return null;
+                  return (
+                    <div className="flex items-center justify-center h-full opacity-40">
+                      <IconComponent className="w-3 h-3" />
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );
@@ -762,19 +785,24 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                             className={`hover:opacity-80 text-xs p-2 rounded border h-full overflow-hidden flex flex-col`}
                             style={getProjectColorStyle(getPlanningWindowColor({ project: instance.project, interestArea: instance.interestArea }), instance.level)}
                           >
-                            {instance.interestArea?.icon && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-sm">{instance.interestArea.icon}</span>
-                                <div className="font-medium truncate flex-1">
+                            {(() => {
+                              const IconComponent = getIconComponent(instance.interestArea?.icon);
+                              if (IconComponent) {
+                                return (
+                                  <div className="flex items-center gap-1">
+                                    <IconComponent className="w-3 h-3 flex-shrink-0" />
+                                    <div className="font-medium truncate flex-1">
+                                      {instance.window.name}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div className="font-medium truncate">
                                   {instance.window.name}
                                 </div>
-                              </div>
-                            )}
-                            {!instance.interestArea?.icon && (
-                              <div className="font-medium truncate">
-                                {instance.window.name}
-                              </div>
-                            )}
+                              );
+                            })()}
                             <div className="text-[10px] opacity-75">
                               {instance.startTime} - {instance.endTime}
                             </div>
@@ -884,19 +912,24 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                         className={`hover:opacity-80 p-3 rounded border h-full overflow-hidden flex flex-col`}
                         style={getProjectColorStyle(getPlanningWindowColor({ project: instance.project, interestArea: instance.interestArea }), instance.level)}
                       >
-                        {instance.interestArea?.icon && (
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xl">{instance.interestArea.icon}</span>
-                            <div className="font-medium truncate flex-1">
+                        {(() => {
+                          const IconComponent = getIconComponent(instance.interestArea?.icon);
+                          if (IconComponent) {
+                            return (
+                              <div className="flex items-center gap-2 mb-1">
+                                <IconComponent className="w-5 h-5 flex-shrink-0" />
+                                <div className="font-medium truncate flex-1">
+                                  {instance.window.name}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="font-medium truncate">
                               {instance.window.name}
                             </div>
-                          </div>
-                        )}
-                        {!instance.interestArea?.icon && (
-                          <div className="font-medium truncate">
-                            {instance.window.name}
-                          </div>
-                        )}
+                          );
+                        })()}
                         <div className="text-sm opacity-75 mt-1">
                           {instance.startTime} - {instance.endTime}
                         </div>
@@ -1048,13 +1081,19 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                 >
                   <div className="flex items-start gap-2">
                     <div 
-                      className="w-4 h-4 rounded border flex-shrink-0 mt-0.5 flex items-center justify-center text-[8px]"
+                      className="w-4 h-4 rounded border flex-shrink-0 mt-0.5 flex items-center justify-center"
                       style={{ 
                         backgroundColor: getPlanningWindowColor({ project, interestArea }),
                         borderColor: getPlanningWindowColor({ project, interestArea })
                       }}
                     >
-                      {interestArea?.icon && <span>{interestArea.icon}</span>}
+                      {(() => {
+                        const IconComponent = getIconComponent(interestArea?.icon);
+                        if (IconComponent) {
+                          return <IconComponent className="w-2.5 h-2.5 text-white" />;
+                        }
+                        return null;
+                      })()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">
