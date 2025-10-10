@@ -27,7 +27,7 @@ function NavItem({ item, isActive }: { item: any; isActive: boolean }) {
       onClick={() => setLocation(item.href)}
     >
       <div 
-        className="flex items-center px-4 py-3 rounded-lg nav-box transition-all flex-1 group-hover:bg-[#D4A574]" 
+        className="flex items-center px-4 py-2 rounded-lg nav-box transition-all flex-1 group-hover:bg-accent" 
         style={{ 
           backgroundColor: isActive ? 'hsl(160, 15%, 55%, 0.3)' : 'hsl(160, 15%, 55%, 0.1)', 
           border: '1px solid hsl(160, 15%, 55%, 0.2)', 
@@ -35,8 +35,18 @@ function NavItem({ item, isActive }: { item: any; isActive: boolean }) {
           maxWidth: '260px' 
         }}
       >
-        <div className="flex items-center justify-center w-9 h-9 rounded-md mr-3 flex-shrink-0 transition-all" style={{ backgroundColor: '#D4A574' }}>
-          <Icon className="h-5 w-5 text-white transition-all group-hover:text-green-600" />
+        <div 
+          className="flex items-center justify-center w-9 h-9 rounded-md mr-3 flex-shrink-0 transition-all" 
+          style={{ 
+            backgroundColor: isActive ? 'white' : 'hsl(45, 75%, 60%)'
+          }}
+        >
+          <Icon 
+            className="h-5 w-5 transition-all group-hover:text-green-600" 
+            style={{ 
+              color: isActive ? 'hsl(45, 75%, 60%)' : 'white'
+            }}
+          />
         </div>
         <span className="text-base font-medium flex-1 text-muted-foreground">{item.name}</span>
       </div>
