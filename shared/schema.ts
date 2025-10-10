@@ -1492,12 +1492,13 @@ export const achievementShareStateEnum = pgEnum("achievement_share_state", ["not
 export const userAchievements = pgTable("user_achievements", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
   achievementId: uuid("achievement_id").references(() => achievementDefinitions.id).notNull(),
   earnedAt: timestamp("earned_at").defaultNow().notNull(),
   shareState: achievementShareStateEnum("share_state").default("not_shared").notNull(),
   evidencePayload: jsonb("evidence_payload"), // Data about how it was earned
 }, (table) => ({
-  userAchievementIdx: uniqueIndex("user_achievement_idx").on(table.userId, table.achievementId),
+  userOrgAchievementIdx: uniqueIndex("user_org_achievement_idx").on(table.userId, table.organizationId, table.achievementId),
 }));
 
 // Streaks tracking

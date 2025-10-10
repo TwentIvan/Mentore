@@ -4,6 +4,8 @@ import {
   vpnConnections, vpnCredentials, systemCredentials, interestAreas, timeAllocationTemplates,
   vpnSoftware, vpnSystems, discoveredVpnSoftware, discoveredVpnConfigurations, organizations, userOrganizations, organizationInvitations,
   emailVerificationTokens, organizationDomains, emailFeedbacks, customFeedbackReasons, emailTrainingSelections, proposals,
+  gamificationPointEvents, userGamificationStats, gamificationLevels, achievementDefinitions, userAchievements, 
+  streaks, challengeDefinitions, challengeInstances, milestoneEvents,
   type User, type InsertUser,
   type Organization, type InsertOrganization,
   type UserOrganization, type InsertUserOrganization,
@@ -40,7 +42,16 @@ import {
   type EmailFeedback, type InsertEmailFeedback,
   type CustomFeedbackReason, type InsertCustomFeedbackReason,
   type EmailTrainingSelection, type InsertEmailTrainingSelection,
-  type Proposal, type InsertProposal
+  type Proposal, type InsertProposal,
+  type GamificationPointEvent, type InsertGamificationPointEvent,
+  type UserGamificationStats, type InsertUserGamificationStats,
+  type GamificationLevel, type InsertGamificationLevel,
+  type AchievementDefinition, type InsertAchievementDefinition,
+  type UserAchievement, type InsertUserAchievement,
+  type Streak, type InsertStreak,
+  type ChallengeDefinition, type InsertChallengeDefinition,
+  type ChallengeInstance, type InsertChallengeInstance,
+  type MilestoneEvent, type InsertMilestoneEvent
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, isNotNull } from "drizzle-orm";
@@ -353,6 +364,46 @@ export interface IStorage {
   setResetToken(userId: string, token: string, expiry: Date): Promise<void>;
   getUserByResetToken(token: string): Promise<User | undefined>;
   clearResetToken(userId: string): Promise<void>;
+
+  // ============================================================================
+  // GAMIFICATION SYSTEM
+  // ============================================================================
+  
+  // Point Events
+  recordPointEvent(event: InsertGamificationPointEvent): Promise<GamificationPointEvent>;
+  getPointEvents(userId: string, organizationId: string, limit?: number): Promise<GamificationPointEvent[]>;
+  
+  // User Stats
+  getUserStats(userId: string, organizationId: string): Promise<UserGamificationStats | undefined>;
+  updateUserStats(userId: string, organizationId: string, stats: Partial<InsertUserGamificationStats>): Promise<UserGamificationStats>;
+  ensureUserStats(userId: string, organizationId: string): Promise<UserGamificationStats>;
+  
+  // Levels
+  getAllLevels(): Promise<GamificationLevel[]>;
+  getLevelByXp(xp: number): Promise<GamificationLevel | undefined>;
+  
+  // Achievements
+  getAllAchievements(): Promise<AchievementDefinition[]>;
+  getUserAchievements(userId: string, organizationId: string): Promise<(UserAchievement & { achievement: AchievementDefinition })[]>;
+  unlockAchievement(userId: string, organizationId: string, achievementId: string, evidencePayload?: any): Promise<UserAchievement>;
+  updateAchievementShareState(id: string, shareState: 'not_shared' | 'shared' | 'pending'): Promise<UserAchievement | undefined>;
+  
+  // Streaks
+  getStreak(userId: string, organizationId: string, scope: 'daily' | 'weekly'): Promise<Streak | undefined>;
+  updateStreak(userId: string, organizationId: string, scope: 'daily' | 'weekly', currentCount: number, longestCount: number): Promise<Streak>;
+  ensureStreak(userId: string, organizationId: string, scope: 'daily' | 'weekly'): Promise<Streak>;
+  
+  // Challenges
+  getActiveChallenges(userId: string, organizationId: string): Promise<(ChallengeInstance & { challenge: ChallengeDefinition })[]>;
+  getChallengeDefinitions(): Promise<ChallengeDefinition[]>;
+  createChallengeInstance(instance: InsertChallengeInstance): Promise<ChallengeInstance>;
+  updateChallengeProgress(id: string, progress: any, status?: 'active' | 'completed' | 'failed' | 'expired'): Promise<ChallengeInstance | undefined>;
+  
+  // Milestones
+  getMilestoneEvents(userId: string, organizationId: string, limit?: number): Promise<MilestoneEvent[]>;
+  createMilestoneEvent(event: InsertMilestoneEvent): Promise<MilestoneEvent>;
+  markMilestoneCelebrated(id: string): Promise<MilestoneEvent | undefined>;
+  getUncelebratedMilestones(userId: string, organizationId: string): Promise<MilestoneEvent[]>;
 
   sessionStore: session.Store;
 }
@@ -3182,6 +3233,280 @@ export class DatabaseStorage implements IStorage {
       },
       orderBy: [asc(emailConfigs.email)],
     });
+  }
+
+  // ============================================================================
+  // GAMIFICATION SYSTEM IMPLEMENTATION
+  // ============================================================================
+  
+  // Point Events
+  async recordPointEvent(event: InsertGamificationPointEvent): Promise<GamificationPointEvent> {
+    const [created] = await db
+      .insert(gamificationPointEvents)
+      .values(event)
+      .returning();
+    return created;
+  }
+
+  async getPointEvents(userId: string, organizationId: string, limit: number = 50): Promise<GamificationPointEvent[]> {
+    return await db
+      .select()
+      .from(gamificationPointEvents)
+      .where(and(
+        eq(gamificationPointEvents.userId, userId),
+        eq(gamificationPointEvents.organizationId, organizationId)
+      ))
+      .orderBy(desc(gamificationPointEvents.createdAt))
+      .limit(limit);
+  }
+
+  // User Stats
+  async getUserStats(userId: string, organizationId: string): Promise<UserGamificationStats | undefined> {
+    const [stats] = await db
+      .select()
+      .from(userGamificationStats)
+      .where(and(
+        eq(userGamificationStats.userId, userId),
+        eq(userGamificationStats.organizationId, organizationId)
+      ));
+    return stats;
+  }
+
+  async updateUserStats(userId: string, organizationId: string, stats: Partial<InsertUserGamificationStats>): Promise<UserGamificationStats> {
+    const existing = await this.getUserStats(userId, organizationId);
+    
+    if (!existing) {
+      throw new Error('User stats not found');
+    }
+
+    const [updated] = await db
+      .update(userGamificationStats)
+      .set({ ...stats, updatedAt: new Date() })
+      .where(and(
+        eq(userGamificationStats.userId, userId),
+        eq(userGamificationStats.organizationId, organizationId)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async ensureUserStats(userId: string, organizationId: string): Promise<UserGamificationStats> {
+    const existing = await this.getUserStats(userId, organizationId);
+    if (existing) return existing;
+
+    const [created] = await db
+      .insert(userGamificationStats)
+      .values({ userId, organizationId })
+      .returning();
+    return created;
+  }
+
+  // Levels
+  async getAllLevels(): Promise<GamificationLevel[]> {
+    return await db
+      .select()
+      .from(gamificationLevels)
+      .orderBy(asc(gamificationLevels.level));
+  }
+
+  async getLevelByXp(xp: number): Promise<GamificationLevel | undefined> {
+    const levels = await this.getAllLevels();
+    // Find highest level where XP >= threshold
+    return levels.reverse().find(level => xp >= level.xpThreshold);
+  }
+
+  // Achievements
+  async getAllAchievements(): Promise<AchievementDefinition[]> {
+    return await db
+      .select()
+      .from(achievementDefinitions)
+      .where(eq(achievementDefinitions.isActive, true));
+  }
+
+  async getUserAchievements(userId: string, organizationId: string): Promise<(UserAchievement & { achievement: AchievementDefinition })[]> {
+    return await db.query.userAchievements.findMany({
+      where: and(
+        eq(userAchievements.userId, userId),
+        eq(userAchievements.organizationId, organizationId)
+      ),
+      with: {
+        achievement: true,
+      },
+      orderBy: [desc(userAchievements.earnedAt)],
+    });
+  }
+
+  async unlockAchievement(userId: string, organizationId: string, achievementId: string, evidencePayload?: any): Promise<UserAchievement> {
+    // Check if already unlocked
+    const [existing] = await db
+      .select()
+      .from(userAchievements)
+      .where(and(
+        eq(userAchievements.userId, userId),
+        eq(userAchievements.organizationId, organizationId),
+        eq(userAchievements.achievementId, achievementId)
+      ));
+    
+    if (existing) {
+      return existing;
+    }
+
+    const [unlocked] = await db
+      .insert(userAchievements)
+      .values({ userId, organizationId, achievementId, evidencePayload })
+      .returning();
+    
+    return unlocked;
+  }
+
+  async updateAchievementShareState(id: string, shareState: 'not_shared' | 'shared' | 'pending'): Promise<UserAchievement | undefined> {
+    const [updated] = await db
+      .update(userAchievements)
+      .set({ shareState })
+      .where(eq(userAchievements.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Streaks
+  async getStreak(userId: string, organizationId: string, scope: 'daily' | 'weekly'): Promise<Streak | undefined> {
+    const [streak] = await db
+      .select()
+      .from(streaks)
+      .where(and(
+        eq(streaks.userId, userId),
+        eq(streaks.organizationId, organizationId),
+        eq(streaks.scope, scope)
+      ));
+    return streak;
+  }
+
+  async updateStreak(userId: string, organizationId: string, scope: 'daily' | 'weekly', currentCount: number, longestCount: number): Promise<Streak> {
+    const existing = await this.getStreak(userId, organizationId, scope);
+    
+    if (!existing) {
+      throw new Error('Streak not found');
+    }
+
+    const [updated] = await db
+      .update(streaks)
+      .set({ 
+        currentCount, 
+        longestCount: Math.max(longestCount, existing.longestCount),
+        lastEventDate: new Date(),
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(streaks.userId, userId),
+        eq(streaks.organizationId, organizationId),
+        eq(streaks.scope, scope)
+      ))
+      .returning();
+    
+    return updated;
+  }
+
+  async ensureStreak(userId: string, organizationId: string, scope: 'daily' | 'weekly'): Promise<Streak> {
+    const existing = await this.getStreak(userId, organizationId, scope);
+    if (existing) return existing;
+
+    const [created] = await db
+      .insert(streaks)
+      .values({ userId, organizationId, scope })
+      .returning();
+    return created;
+  }
+
+  // Challenges
+  async getActiveChallenges(userId: string, organizationId: string): Promise<(ChallengeInstance & { challenge: ChallengeDefinition })[]> {
+    return await db.query.challengeInstances.findMany({
+      where: and(
+        eq(challengeInstances.userId, userId),
+        eq(challengeInstances.organizationId, organizationId),
+        eq(challengeInstances.status, 'active')
+      ),
+      with: {
+        challenge: true,
+      },
+      orderBy: [asc(challengeInstances.endDate)],
+    });
+  }
+
+  async getChallengeDefinitions(): Promise<ChallengeDefinition[]> {
+    return await db
+      .select()
+      .from(challengeDefinitions)
+      .where(eq(challengeDefinitions.isActive, true));
+  }
+
+  async createChallengeInstance(instance: InsertChallengeInstance): Promise<ChallengeInstance> {
+    const [created] = await db
+      .insert(challengeInstances)
+      .values(instance)
+      .returning();
+    return created;
+  }
+
+  async updateChallengeProgress(id: string, progress: any, status?: 'active' | 'completed' | 'failed' | 'expired'): Promise<ChallengeInstance | undefined> {
+    const updateData: any = { progress };
+    
+    if (status) {
+      updateData.status = status;
+      if (status === 'completed') {
+        updateData.completedAt = new Date();
+      }
+    }
+
+    const [updated] = await db
+      .update(challengeInstances)
+      .set(updateData)
+      .where(eq(challengeInstances.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  // Milestones
+  async getMilestoneEvents(userId: string, organizationId: string, limit: number = 20): Promise<MilestoneEvent[]> {
+    return await db
+      .select()
+      .from(milestoneEvents)
+      .where(and(
+        eq(milestoneEvents.userId, userId),
+        eq(milestoneEvents.organizationId, organizationId)
+      ))
+      .orderBy(desc(milestoneEvents.createdAt))
+      .limit(limit);
+  }
+
+  async createMilestoneEvent(event: InsertMilestoneEvent): Promise<MilestoneEvent> {
+    const [created] = await db
+      .insert(milestoneEvents)
+      .values(event)
+      .returning();
+    return created;
+  }
+
+  async markMilestoneCelebrated(id: string): Promise<MilestoneEvent | undefined> {
+    const [updated] = await db
+      .update(milestoneEvents)
+      .set({ celebrated: true })
+      .where(eq(milestoneEvents.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getUncelebratedMilestones(userId: string, organizationId: string): Promise<MilestoneEvent[]> {
+    return await db
+      .select()
+      .from(milestoneEvents)
+      .where(and(
+        eq(milestoneEvents.userId, userId),
+        eq(milestoneEvents.organizationId, organizationId),
+        eq(milestoneEvents.celebrated, false)
+      ))
+      .orderBy(desc(milestoneEvents.createdAt));
   }
 }
 
