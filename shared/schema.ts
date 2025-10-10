@@ -1690,3 +1690,45 @@ export const emailTrainingSelectionsRelations = relations(emailTrainingSelection
   }),
 }));
 
+// Relations for gamification user achievements
+export const userAchievementsRelations = relations(userAchievements, ({ one }) => ({
+  achievement: one(achievementDefinitions, {
+    fields: [userAchievements.achievementId],
+    references: [achievementDefinitions.id],
+  }),
+  user: one(users, {
+    fields: [userAchievements.userId],
+    references: [users.id],
+  }),
+  organization: one(organizations, {
+    fields: [userAchievements.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+// Relations for gamification achievement definitions
+export const achievementDefinitionsRelations = relations(achievementDefinitions, ({ many }) => ({
+  userAchievements: many(userAchievements),
+}));
+
+// Relations for gamification challenge instances
+export const challengeInstancesRelations = relations(challengeInstances, ({ one }) => ({
+  challenge: one(challengeDefinitions, {
+    fields: [challengeInstances.challengeId],
+    references: [challengeDefinitions.id],
+  }),
+  user: one(users, {
+    fields: [challengeInstances.userId],
+    references: [users.id],
+  }),
+  organization: one(organizations, {
+    fields: [challengeInstances.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+// Relations for gamification challenge definitions
+export const challengeDefinitionsRelations = relations(challengeDefinitions, ({ many }) => ({
+  instances: many(challengeInstances),
+}));
+
