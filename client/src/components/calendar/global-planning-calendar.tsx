@@ -454,11 +454,13 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
               }}
             >
               <div 
-                className={`${hoveredWindowId === instance.window.id ? 'ring-2 ring-offset-1 ring-primary' : ''} hover:opacity-80 rounded border h-full overflow-hidden ${hasChildren ? 'border-2 border-dashed' : ''}`}
+                className={`${hoveredWindowId === instance.window.id ? 'ring-2 ring-offset-1 ring-primary' : ''} hover:opacity-80 rounded border h-full w-full ${hasChildren ? 'border-2 border-dashed' : ''}`}
                 style={instance.project ? getProjectColorStyle(getProjectHierarchyColor(instance.project), level) : { backgroundColor: '#E5E7EB', borderColor: '#D1D5DB', color: '#374151' }}
                 onMouseEnter={() => setHoveredWindowId(instance.window.id)}
                 onMouseLeave={() => setHoveredWindowId(null)}
-              />
+              >
+                {/* Empty div with background color only */}
+              </div>
             </div>
           );
           
