@@ -760,16 +760,6 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     );
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-8">
-          <div className="text-center">Loading calendar...</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Get unique planning windows for legend
   const uniqueWindows = useMemo(() => {
     if (!planningWindowsWithProject) return [];
@@ -785,6 +775,16 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
       a.window.name.localeCompare(b.window.name)
     );
   }, [planningWindowsWithProject]);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-8">
+          <div className="text-center">Loading calendar...</div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
