@@ -18,6 +18,7 @@ import {
   insertDiscoveredVpnSoftwareSchema, insertDiscoveredVpnConfigurationSchema,
   insertOrganizationSchema, insertUserOrganizationSchema, insertOrganizationInvitationSchema,
   insertOrganizationDomainSchema, insertEmailFeedbackSchema, insertEmailTrainingSelectionSchema,
+  insertGamificationPointEventSchema, insertChallengeInstanceSchema,
   type EmailConfig,
   projects, tasks, partners, contacts, messages, deals, calendarEvents, salesOrders, rateAgreements,
   humanResources, systemCredentials, timesheets, comments, interestAreas, timeAllocationTemplates
@@ -5045,6 +5046,179 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
         details: error instanceof Error ? error.message : String(error) 
       });
     }
+  });
+
+  // ============================================================================
+  // GAMIFICATION API ENDPOINTS
+  // ============================================================================
+
+  // Get user stats
+  app.get("/api/gamification/stats", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    
+    const stats = await storage.ensureUserStats(req.user!.id, organizationId);
+    res.json(stats);
+  });
+
+  // Get point events history
+  app.get("/api/gamification/points/history", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    
+    const events = await storage.getPointEvents(req.user!.id, organizationId, limit);
+    res.json(events);
+  });
+
+  // Get all levels
+  app.get("/api/gamification/levels", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const levels = await storage.getAllLevels();
+    res.json(levels);
+  });
+
+  // Get all achievement definitions
+  app.get("/api/gamification/achievements", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const achievements = await storage.getAllAchievements();
+    res.json(achievements);
+  });
+
+  // Get user's unlocked achievements
+  app.get("/api/gamification/achievements/unlocked", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    
+    const unlocked = await storage.getUserAchievements(req.user!.id, organizationId);
+    res.json(unlocked);
+  });
+
+  // Unlock achievement (manually - normally done by gamification service)
+  app.post("/api/gamification/achievements/unlock", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    
+    const schema = z.object({
+      achievementId: z.string().uuid(),
+      evidencePayload: z.any().optional(),
+    });
+    
+    try {
+      const { achievementId, evidencePayload } = schema.parse(req.body);
+      const achievement = await storage.unlockAchievement(req.user!.id, organizationId, achievementId, evidencePayload);
+      
+      if (!achievement) {
+        return res.status(404).json({ error: "Achievement not found or could not be unlocked" });
+      }
+      
+      res.json(achievement);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      throw error;
+    }
+  });
+
+  // Get user's streak
+  app.get("/api/gamification/streak/:scope", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    const scope = req.params.scope as 'daily' | 'weekly';
+    
+    if (scope !== 'daily' && scope !== 'weekly') {
+      return res.status(400).json({ error: "scope must be 'daily' or 'weekly'" });
+    }
+    
+    const streak = await storage.ensureStreak(req.user!.id, organizationId, scope);
+    res.json(streak);
+  });
+
+  // Get active challenges
+  app.get("/api/gamification/challenges/active", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    
+    const challenges = await storage.getActiveChallenges(req.user!.id, organizationId);
+    res.json(challenges);
+  });
+
+  // Get challenge definitions
+  app.get("/api/gamification/challenges/definitions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const definitions = await storage.getChallengeDefinitions();
+    res.json(definitions);
+  });
+
+  // Create challenge instance
+  app.post("/api/gamification/challenges/instances", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    
+    const validatedData = insertChallengeInstanceSchema.parse(req.body);
+    const instance = await storage.createChallengeInstance({
+      ...validatedData,
+      userId: req.user!.id,
+      organizationId,
+    });
+    
+    res.status(201).json(instance);
+  });
+
+  // Update challenge progress
+  app.patch("/api/gamification/challenges/instances/:id/progress", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const schema = z.object({
+      progress: z.any(),
+      status: z.enum(['active', 'completed', 'failed', 'expired']).optional(),
+    });
+    
+    try {
+      const { progress, status } = schema.parse(req.body);
+      const updated = await storage.updateChallengeProgress(req.params.id, progress, status);
+      
+      if (!updated) return res.status(404).json({ error: "Challenge not found" });
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      throw error;
+    }
+  });
+
+  // Get milestone events
+  app.get("/api/gamification/milestones", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+    
+    const milestones = await storage.getMilestoneEvents(req.user!.id, organizationId, limit);
+    res.json(milestones);
+  });
+
+  // Get uncelebrated milestones
+  app.get("/api/gamification/milestones/uncelebrated", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    
+    const uncelebrated = await storage.getUncelebratedMilestones(req.user!.id, organizationId);
+    res.json(uncelebrated);
+  });
+
+  // Mark milestone as celebrated
+  app.patch("/api/gamification/milestones/:id/celebrate", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const milestone = await storage.markMilestoneCelebrated(req.params.id);
+    if (!milestone) return res.status(404).json({ error: "Milestone not found" });
+    
+    res.json(milestone);
   });
 
   const httpServer = createServer(app);
