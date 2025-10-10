@@ -27,7 +27,7 @@ import {
   Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
   Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
   Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake,
-  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes, Tool
+  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes
 } from "lucide-react";
 import type { InterestArea } from "@shared/schema";
 import { insertInterestAreaSchema } from "@shared/schema";
@@ -44,7 +44,7 @@ const iconMap = {
   Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
   Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
   Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake,
-  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes, Tool
+  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes
 };
 
 const iconOptions = [
@@ -149,7 +149,6 @@ const iconOptions = [
   { value: "Hammer", label: "Martello", Icon: Hammer, category: "Manutenzione" },
   { value: "Settings", label: "Impostazioni", Icon: Settings, category: "Manutenzione" },
   { value: "Cog", label: "Ingranaggio", Icon: Cog, category: "Manutenzione" },
-  { value: "Tool", label: "Attrezzi", Icon: Tool, category: "Manutenzione" },
   { value: "HardHat", label: "Casco", Icon: HardHat, category: "Manutenzione" },
   { value: "Construction", label: "Costruzione", Icon: Construction, category: "Manutenzione" },
   { value: "Package", label: "Pacco", Icon: Package, category: "Logistica" },

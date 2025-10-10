@@ -16,7 +16,7 @@ import {
   Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
   Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
   Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake,
-  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes, Tool
+  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes
 } from "lucide-react";
 import { PlanningWindow, Project, InterestArea } from "@shared/schema";
 import { 
@@ -60,7 +60,7 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
   Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
   Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake,
-  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes, Tool
+  Wrench, Hammer, Settings, Cog, HardHat, Construction, Package, Cpu, CircuitBoard, Plug, Factory, Warehouse, Container, Boxes
 };
 
 // Helper to get icon component with fallback
