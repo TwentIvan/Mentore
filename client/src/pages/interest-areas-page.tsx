@@ -16,33 +16,133 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Edit, Trash2, Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles, Lightbulb } from "lucide-react";
+import { 
+  Plus, Edit, Trash2, Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles, Lightbulb,
+  Book, BookOpen, Coffee, Camera, Plane, Car, ShoppingBag, Users, Star, Zap, Clock, Calendar,
+  Laptop, Phone, Mail, MessageSquare, Video, Mic, Headphones, Globe, Map, MapPin, Navigation,
+  Flag, Award, Target, Trophy, Gift, Rocket, Lightbulb as LightbulbIcon, Flame, Sun, Moon,
+  Cloud, Umbrella, Droplet, Wind, Snowflake, Leaf, Flower2, Trees, Mountain, Waves,
+  Pizza, UtensilsCrossed, IceCream, Wine, Cookie, Apple, Carrot, Sandwich, Soup,
+  Gamepad2, Puzzle, Dice5, Swords, Shield, Crown, Gem, Coins, Banknote, CreditCard,
+  Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
+  Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
+  Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake
+} from "lucide-react";
 import type { InterestArea } from "@shared/schema";
 import { insertInterestAreaSchema } from "@shared/schema";
 
-// Icon mapping
+// Icon mapping completo
 const iconMap = {
-  Tag,
-  Briefcase,
-  GraduationCap,
-  Dumbbell,
-  Heart,
-  Home,
-  Music,
-  Palette,
-  Sparkles,
+  Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles,
+  Book, BookOpen, Coffee, Camera, Plane, Car, ShoppingBag, Users, Star, Zap, Clock, Calendar,
+  Laptop, Phone, Mail, MessageSquare, Video, Mic, Headphones, Globe, Map, MapPin, Navigation,
+  Flag, Award, Target, Trophy, Gift, Rocket, Lightbulb, Flame, Sun, Moon,
+  Cloud, Umbrella, Droplet, Wind, Snowflake, Leaf, Flower2, Trees, Mountain, Waves,
+  Pizza, UtensilsCrossed, IceCream, Wine, Cookie, Apple, Carrot, Sandwich, Soup,
+  Gamepad2, Puzzle, Dice5, Swords, Shield, Crown, Gem, Coins, Banknote, CreditCard,
+  Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
+  Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
+  Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake
 };
 
 const iconOptions = [
-  { value: "Tag", label: "Tag", Icon: Tag },
-  { value: "Briefcase", label: "Lavoro", Icon: Briefcase },
-  { value: "GraduationCap", label: "Studio", Icon: GraduationCap },
-  { value: "Dumbbell", label: "Fitness", Icon: Dumbbell },
-  { value: "Heart", label: "Salute", Icon: Heart },
-  { value: "Home", label: "Casa", Icon: Home },
-  { value: "Music", label: "Musica", Icon: Music },
-  { value: "Palette", label: "Arte", Icon: Palette },
-  { value: "Sparkles", label: "Hobby", Icon: Sparkles },
+  { value: "Tag", label: "Tag", Icon: Tag, category: "Generale" },
+  { value: "Briefcase", label: "Lavoro", Icon: Briefcase, category: "Lavoro" },
+  { value: "GraduationCap", label: "Studio", Icon: GraduationCap, category: "Studio" },
+  { value: "Dumbbell", label: "Fitness", Icon: Dumbbell, category: "Sport" },
+  { value: "Heart", label: "Salute", Icon: Heart, category: "Salute" },
+  { value: "Home", label: "Casa", Icon: Home, category: "Casa" },
+  { value: "Music", label: "Musica", Icon: Music, category: "Arte" },
+  { value: "Palette", label: "Arte", Icon: Palette, category: "Arte" },
+  { value: "Sparkles", label: "Hobby", Icon: Sparkles, category: "Hobby" },
+  { value: "Book", label: "Libro", Icon: Book, category: "Studio" },
+  { value: "BookOpen", label: "Lettura", Icon: BookOpen, category: "Studio" },
+  { value: "Coffee", label: "Caffè", Icon: Coffee, category: "Tempo libero" },
+  { value: "Camera", label: "Fotografia", Icon: Camera, category: "Hobby" },
+  { value: "Plane", label: "Viaggio", Icon: Plane, category: "Viaggio" },
+  { value: "Car", label: "Auto", Icon: Car, category: "Viaggio" },
+  { value: "ShoppingBag", label: "Shopping", Icon: ShoppingBag, category: "Shopping" },
+  { value: "Users", label: "Persone", Icon: Users, category: "Sociale" },
+  { value: "Star", label: "Stella", Icon: Star, category: "Generale" },
+  { value: "Zap", label: "Energia", Icon: Zap, category: "Sport" },
+  { value: "Clock", label: "Tempo", Icon: Clock, category: "Generale" },
+  { value: "Calendar", label: "Calendario", Icon: Calendar, category: "Generale" },
+  { value: "Laptop", label: "Computer", Icon: Laptop, category: "Lavoro" },
+  { value: "Phone", label: "Telefono", Icon: Phone, category: "Comunicazione" },
+  { value: "Mail", label: "Email", Icon: Mail, category: "Comunicazione" },
+  { value: "MessageSquare", label: "Messaggio", Icon: MessageSquare, category: "Comunicazione" },
+  { value: "Video", label: "Video", Icon: Video, category: "Comunicazione" },
+  { value: "Mic", label: "Microfono", Icon: Mic, category: "Arte" },
+  { value: "Headphones", label: "Cuffie", Icon: Headphones, category: "Arte" },
+  { value: "Globe", label: "Mondo", Icon: Globe, category: "Viaggio" },
+  { value: "Map", label: "Mappa", Icon: Map, category: "Viaggio" },
+  { value: "MapPin", label: "Posizione", Icon: MapPin, category: "Viaggio" },
+  { value: "Navigation", label: "Navigazione", Icon: Navigation, category: "Viaggio" },
+  { value: "Flag", label: "Bandiera", Icon: Flag, category: "Generale" },
+  { value: "Award", label: "Premio", Icon: Award, category: "Obiettivi" },
+  { value: "Target", label: "Obiettivo", Icon: Target, category: "Obiettivi" },
+  { value: "Trophy", label: "Trofeo", Icon: Trophy, category: "Obiettivi" },
+  { value: "Gift", label: "Regalo", Icon: Gift, category: "Generale" },
+  { value: "Rocket", label: "Razzo", Icon: Rocket, category: "Obiettivi" },
+  { value: "Lightbulb", label: "Idea", Icon: Lightbulb, category: "Creatività" },
+  { value: "Flame", label: "Fuoco", Icon: Flame, category: "Sport" },
+  { value: "Sun", label: "Sole", Icon: Sun, category: "Natura" },
+  { value: "Moon", label: "Luna", Icon: Moon, category: "Natura" },
+  { value: "Cloud", label: "Nuvola", Icon: Cloud, category: "Natura" },
+  { value: "Umbrella", label: "Ombrello", Icon: Umbrella, category: "Natura" },
+  { value: "Droplet", label: "Goccia", Icon: Droplet, category: "Natura" },
+  { value: "Wind", label: "Vento", Icon: Wind, category: "Natura" },
+  { value: "Snowflake", label: "Fiocco", Icon: Snowflake, category: "Natura" },
+  { value: "Leaf", label: "Foglia", Icon: Leaf, category: "Natura" },
+  { value: "Flower2", label: "Fiore", Icon: Flower2, category: "Natura" },
+  { value: "Trees", label: "Alberi", Icon: Trees, category: "Natura" },
+  { value: "Mountain", label: "Montagna", Icon: Mountain, category: "Natura" },
+  { value: "Waves", label: "Onde", Icon: Waves, category: "Natura" },
+  { value: "Pizza", label: "Pizza", Icon: Pizza, category: "Cibo" },
+  { value: "UtensilsCrossed", label: "Ristorante", Icon: UtensilsCrossed, category: "Cibo" },
+  { value: "IceCream", label: "Gelato", Icon: IceCream, category: "Cibo" },
+  { value: "Wine", label: "Vino", Icon: Wine, category: "Cibo" },
+  { value: "Cookie", label: "Biscotto", Icon: Cookie, category: "Cibo" },
+  { value: "Apple", label: "Mela", Icon: Apple, category: "Cibo" },
+  { value: "Carrot", label: "Carota", Icon: Carrot, category: "Cibo" },
+  { value: "Sandwich", label: "Panino", Icon: Sandwich, category: "Cibo" },
+  { value: "Soup", label: "Zuppa", Icon: Soup, category: "Cibo" },
+  { value: "Gamepad2", label: "Gaming", Icon: Gamepad2, category: "Hobby" },
+  { value: "Puzzle", label: "Puzzle", Icon: Puzzle, category: "Hobby" },
+  { value: "Dice5", label: "Giochi", Icon: Dice5, category: "Hobby" },
+  { value: "Swords", label: "Spade", Icon: Swords, category: "Hobby" },
+  { value: "Shield", label: "Scudo", Icon: Shield, category: "Hobby" },
+  { value: "Crown", label: "Corona", Icon: Crown, category: "Generale" },
+  { value: "Gem", label: "Gemma", Icon: Gem, category: "Shopping" },
+  { value: "Coins", label: "Monete", Icon: Coins, category: "Finanze" },
+  { value: "Banknote", label: "Denaro", Icon: Banknote, category: "Finanze" },
+  { value: "CreditCard", label: "Carta", Icon: CreditCard, category: "Finanze" },
+  { value: "Shirt", label: "Abbigliamento", Icon: Shirt, category: "Shopping" },
+  { value: "Watch", label: "Orologio", Icon: Watch, category: "Shopping" },
+  { value: "Glasses", label: "Occhiali", Icon: Glasses, category: "Shopping" },
+  { value: "Footprints", label: "Passi", Icon: Footprints, category: "Sport" },
+  { value: "Backpack", label: "Zaino", Icon: Backpack, category: "Viaggio" },
+  { value: "Bike", label: "Bici", Icon: Bike, category: "Sport" },
+  { value: "Train", label: "Treno", Icon: Train, category: "Viaggio" },
+  { value: "Bus", label: "Bus", Icon: Bus, category: "Viaggio" },
+  { value: "Sailboat", label: "Barca", Icon: Sailboat, category: "Hobby" },
+  { value: "Baby", label: "Bambino", Icon: Baby, category: "Famiglia" },
+  { value: "Dog", label: "Cane", Icon: Dog, category: "Animali" },
+  { value: "Cat", label: "Gatto", Icon: Cat, category: "Animali" },
+  { value: "Bird", label: "Uccello", Icon: Bird, category: "Animali" },
+  { value: "Fish", label: "Pesce", Icon: Fish, category: "Animali" },
+  { value: "Bug", label: "Insetto", Icon: Bug, category: "Animali" },
+  { value: "Rabbit", label: "Coniglio", Icon: Rabbit, category: "Animali" },
+  { value: "Squirrel", label: "Scoiattolo", Icon: Squirrel, category: "Animali" },
+  { value: "Turtle", label: "Tartaruga", Icon: Turtle, category: "Animali" },
+  { value: "Smile", label: "Sorriso", Icon: Smile, category: "Emozioni" },
+  { value: "Laugh", label: "Risata", Icon: Laugh, category: "Emozioni" },
+  { value: "Frown", label: "Triste", Icon: Frown, category: "Emozioni" },
+  { value: "Meh", label: "Neutro", Icon: Meh, category: "Emozioni" },
+  { value: "ThumbsUp", label: "Pollice su", Icon: ThumbsUp, category: "Emozioni" },
+  { value: "ThumbsDown", label: "Pollice giù", Icon: ThumbsDown, category: "Emozioni" },
+  { value: "HeartHandshake", label: "Amicizia", Icon: HeartHandshake, category: "Sociale" },
+  { value: "Handshake", label: "Accordo", Icon: Handshake, category: "Sociale" },
 ];
 
 const colorOptions = [
@@ -54,6 +154,14 @@ const colorOptions = [
   { value: "#EC4899", label: "Rosa" },
   { value: "#14B8A6", label: "Teal" },
   { value: "#F97316", label: "Arancione scuro" },
+  { value: "#06B6D4", label: "Cyan" },
+  { value: "#84CC16", label: "Lime" },
+  { value: "#F43F5E", label: "Rose" },
+  { value: "#6366F1", label: "Indaco" },
+  { value: "#A855F7", label: "Viola chiaro" },
+  { value: "#D946EF", label: "Fucsia" },
+  { value: "#0EA5E9", label: "Sky" },
+  { value: "#22C55E", label: "Verde brillante" },
 ];
 
 const formSchema = z.object({
@@ -70,6 +178,7 @@ export default function InterestAreasPage() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedArea, setSelectedArea] = useState<InterestArea | null>(null);
+  const [iconSearch, setIconSearch] = useState("");
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -177,6 +286,7 @@ export default function InterestAreasPage() {
       color: "#3B82F6",
       icon: "Tag",
     });
+    setIconSearch("");
     setShowCreateDialog(true);
   };
 
@@ -188,6 +298,7 @@ export default function InterestAreasPage() {
       color: area.color,
       icon: area.icon || "Tag",
     });
+    setIconSearch("");
     setShowEditDialog(true);
   };
 
@@ -452,31 +563,55 @@ export default function InterestAreasPage() {
               <FormField
                 control={form.control}
                 name="icon"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Icona</FormLabel>
-                    <FormControl>
-                      <div className="grid grid-cols-5 gap-2">
-                        {iconOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            data-testid={`button-icon-${option.value}`}
-                            onClick={() => field.onChange(option.value)}
-                            className={`p-3 rounded-lg border-2 transition-colors ${
-                              field.value === option.value
-                                ? "border-primary bg-primary/10"
-                                : "border-transparent hover:border-muted"
-                            }`}
-                          >
-                            <option.Icon className="h-5 w-5 mx-auto" />
-                          </button>
-                        ))}
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const filteredIcons = iconOptions.filter(option => 
+                    option.label.toLowerCase().includes(iconSearch.toLowerCase()) ||
+                    option.category.toLowerCase().includes(iconSearch.toLowerCase())
+                  );
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Icona</FormLabel>
+                      <FormControl>
+                        <div className="space-y-3">
+                          <Input
+                            data-testid="input-icon-search"
+                            placeholder="Cerca icona... (es. casa, lavoro, sport)"
+                            value={iconSearch}
+                            onChange={(e) => setIconSearch(e.target.value)}
+                            className="w-full"
+                          />
+                          <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
+                            <div className="grid grid-cols-6 gap-2">
+                              {filteredIcons.map((option) => (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  data-testid={`button-icon-${option.value}`}
+                                  onClick={() => field.onChange(option.value)}
+                                  className={`p-3 rounded-lg border-2 transition-colors ${
+                                    field.value === option.value
+                                      ? "border-primary bg-primary/10"
+                                      : "border-transparent hover:border-muted"
+                                  }`}
+                                  title={option.label}
+                                >
+                                  <option.Icon className="h-5 w-5 mx-auto" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {field.value && (
+                            <div className="text-sm text-muted-foreground">
+                              Icona selezionata: {iconOptions.find(o => o.value === field.value)?.label}
+                            </div>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -486,7 +621,7 @@ export default function InterestAreasPage() {
                   <FormItem>
                     <FormLabel>Colore</FormLabel>
                     <FormControl>
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-8 gap-2">
                         {colorOptions.map((option) => (
                           <button
                             key={option.value}

@@ -3,7 +3,20 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Calendar, FolderTree, Clock, Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles } from "lucide-react";
+import { 
+  ChevronLeft, ChevronRight, 
+  Calendar, FolderTree, Clock,
+  Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles,
+  Book, BookOpen, Coffee, Camera, Plane, Car, ShoppingBag, Users, Star, Zap,
+  Laptop, Phone, Mail, MessageSquare, Video, Mic, Headphones, Globe, Map, MapPin, Navigation,
+  Flag, Award, Target, Trophy, Gift, Rocket, Lightbulb, Flame, Sun, Moon,
+  Cloud, Umbrella, Droplet, Wind, Snowflake, Leaf, Flower2, Trees, Mountain, Waves,
+  Pizza, UtensilsCrossed, IceCream, Wine, Cookie, Apple, Carrot, Sandwich, Soup,
+  Gamepad2, Puzzle, Dice5, Swords, Shield, Crown, Gem, Coins, Banknote, CreditCard,
+  Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
+  Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
+  Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake
+} from "lucide-react";
 import { PlanningWindow, Project, InterestArea } from "@shared/schema";
 import { 
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, 
@@ -35,15 +48,17 @@ type CalendarView = 'month' | 'week' | 'day';
 
 // Icon mapping for interest areas (from interest-areas-page.tsx)
 const iconMap: Record<string, ComponentType<{ className?: string }>> = {
-  Tag,
-  Briefcase,
-  GraduationCap,
-  Dumbbell,
-  Heart,
-  Home,
-  Music,
-  Palette,
-  Sparkles,
+  Tag, Briefcase, GraduationCap, Dumbbell, Heart, Home, Music, Palette, Sparkles,
+  Book, BookOpen, Coffee, Camera, Plane, Car, ShoppingBag, Users, Star, Zap,
+  Clock, Calendar,
+  Laptop, Phone, Mail, MessageSquare, Video, Mic, Headphones, Globe, Map, MapPin, Navigation,
+  Flag, Award, Target, Trophy, Gift, Rocket, Lightbulb, Flame, Sun, Moon,
+  Cloud, Umbrella, Droplet, Wind, Snowflake, Leaf, Flower2, Trees, Mountain, Waves,
+  Pizza, UtensilsCrossed, IceCream, Wine, Cookie, Apple, Carrot, Sandwich, Soup,
+  Gamepad2, Puzzle, Dice5, Swords, Shield, Crown, Gem, Coins, Banknote, CreditCard,
+  Shirt, Watch, Glasses, Footprints, Backpack, Bike, Train, Bus, Sailboat,
+  Baby, Dog, Cat, Bird, Fish, Bug, Rabbit, Squirrel, Turtle,
+  Smile, Laugh, Frown, Meh, ThumbsUp, ThumbsDown, HeartHandshake, Handshake
 };
 
 // Helper to get icon component with fallback
