@@ -13,7 +13,14 @@ import {
 } from "date-fns";
 
 interface PlanningWindowWithProject extends PlanningWindow {
-  project: Project;
+  project: Project | null;
+  interestArea: InterestArea | null;
+}
+
+interface InterestArea {
+  id: string;
+  name: string;
+  color: string | null;
 }
 
 interface GlobalPlanningCalendarProps {
@@ -22,7 +29,8 @@ interface GlobalPlanningCalendarProps {
 
 interface ExpandedPlanningInstance {
   window: PlanningWindow;
-  project: Project;
+  project: Project | null;
+  interestArea: InterestArea | null;
   date: Date;
   startTime: string;
   endTime: string;
@@ -98,7 +106,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     const { start: calendarStart, end: calendarEnd } = getDateRange();
     const instances: ExpandedPlanningInstance[] = [];
     
-    planningWindowsWithProject.forEach(({ project, ...window }) => {
+    planningWindowsWithProject.forEach(({ project, interestArea, ...window }) => {
       const windowStart = new Date(window.startDate);
       const windowEnd = new Date(window.endDate);
       const projectLevel = project ? (projectHierarchy.get(project.id) || 0) : 0;
@@ -122,6 +130,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
               instances.push({
                 window,
                 project,
+                interestArea,
                 date: day,
                 startTime: window.startTime || '09:00',
                 endTime: window.endTime || '17:00',
@@ -133,6 +142,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
             instances.push({
               window,
               project,
+              interestArea,
               date: windowStart,
               startTime: window.startTime || '09:00',
               endTime: window.endTime || '17:00',
@@ -166,6 +176,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                   instances.push({
                     window,
                     project,
+                    interestArea,
                     date: new Date(targetDate),
                     startTime: window.startTime || '09:00',
                     endTime: window.endTime || '17:00',
@@ -188,6 +199,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
               instances.push({
                 window,
                 project,
+                interestArea,
                 date: new Date(currentInstanceDate),
                 startTime: window.startTime || '09:00',
                 endTime: window.endTime || '17:00',
@@ -285,6 +297,20 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
 
   const getLevelIndentation = (level: number) => {
     return level * 4;
+  };
+
+  // Funzione per trovare il colore di un planning window (da progetto o area di interesse)
+  const getPlanningWindowColor = (pwp: { project: Project | null; interestArea: InterestArea | null }): string => {
+    // Se ha un progetto, usa il colore del progetto (con gerarchia)
+    if (pwp.project) {
+      return getProjectHierarchyColor(pwp.project);
+    }
+    // Altrimenti usa il colore dell'area di interesse
+    if (pwp.interestArea && pwp.interestArea.color) {
+      return pwp.interestArea.color;
+    }
+    // Fallback
+    return '#3B82F6';
   };
 
   // Funzione per trovare il colore del progetto padre nella gerarchia
@@ -455,7 +481,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
             >
               <div 
                 className={`${hoveredWindowId === instance.window.id ? 'ring-2 ring-offset-1 ring-primary' : ''} hover:opacity-80 rounded border h-full w-full ${hasChildren ? 'border-2 border-dashed' : ''}`}
-                style={instance.project ? getProjectColorStyle(getProjectHierarchyColor(instance.project), level) : { backgroundColor: '#E5E7EB', borderColor: '#D1D5DB', color: '#374151' }}
+                style={getProjectColorStyle(getPlanningWindowColor({ project: instance.project, interestArea: instance.interestArea }), level)}
                 onMouseEnter={() => setHoveredWindowId(instance.window.id)}
                 onMouseLeave={() => setHoveredWindowId(null)}
               >
@@ -626,7 +652,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                       >
                         <div 
                           className={`hover:opacity-80 text-xs p-2 rounded border h-full overflow-hidden`}
-                          style={getProjectColorStyle(getProjectHierarchyColor(instance.project), instance.level)}
+                          style={getProjectColorStyle(getPlanningWindowColor({ project: instance.project, interestArea: instance.interestArea }), instance.level)}
                         >
                           <div className="font-medium truncate">
                             {instance.window.name}
@@ -766,10 +792,10 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
   const uniqueWindows = useMemo(() => {
     if (!planningWindowsWithProject) return [];
     
-    const windowMap = new Map<string, { window: PlanningWindow; project: Project | null }>();
-    planningWindowsWithProject.forEach(({ project, ...window }) => {
+    const windowMap = new Map<string, { window: PlanningWindow; project: Project | null; interestArea: InterestArea | null }>();
+    planningWindowsWithProject.forEach(({ project, interestArea, ...window }) => {
       if (!windowMap.has(window.id)) {
-        windowMap.set(window.id, { window, project });
+        windowMap.set(window.id, { window, project, interestArea });
       }
     });
     
@@ -864,7 +890,7 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
               Calendari
             </h4>
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {uniqueWindows.map(({ window, project }) => (
+              {uniqueWindows.map(({ window, project, interestArea }) => (
                 <div
                   key={window.id}
                   className={`p-2 rounded-lg border cursor-pointer transition-all ${
@@ -873,10 +899,10 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                       : 'hover:bg-muted/50'
                   }`}
                   style={{
-                    borderColor: project ? getProjectHierarchyColor(project) : '#D1D5DB',
+                    borderColor: getPlanningWindowColor({ project, interestArea }),
                     backgroundColor: hoveredWindowId === window.id 
                       ? undefined 
-                      : (project ? `${getProjectHierarchyColor(project)}15` : '#F3F4F6')
+                      : `${getPlanningWindowColor({ project, interestArea })}15`
                   }}
                   onMouseEnter={() => setHoveredWindowId(window.id)}
                   onMouseLeave={() => setHoveredWindowId(null)}
@@ -887,8 +913,8 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                     <div 
                       className="w-4 h-4 rounded border flex-shrink-0 mt-0.5"
                       style={{ 
-                        backgroundColor: project ? getProjectHierarchyColor(project) : '#D1D5DB',
-                        borderColor: project ? getProjectHierarchyColor(project) : '#9CA3AF'
+                        backgroundColor: getPlanningWindowColor({ project, interestArea }),
+                        borderColor: getPlanningWindowColor({ project, interestArea })
                       }}
                     />
                     <div className="flex-1 min-w-0">
