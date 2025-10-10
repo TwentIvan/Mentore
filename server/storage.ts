@@ -1517,9 +1517,8 @@ export class DatabaseStorage implements IStorage {
     const [window] = await db
       .select()
       .from(planningWindows)
-      .innerJoin(projects, eq(projects.id, planningWindows.projectId))
-      .where(and(eq(planningWindows.id, id), eq(projects.userId, userId)));
-    return window?.planning_windows || undefined;
+      .where(and(eq(planningWindows.id, id), eq(planningWindows.userId, userId)));
+    return window || undefined;
   }
 
   async createPlanningWindow(window: InsertPlanningWindow): Promise<PlanningWindow> {
