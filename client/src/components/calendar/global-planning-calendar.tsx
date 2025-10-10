@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Calendar, FolderTree, Clock } from "lucide-react";
-import { PlanningWindow, Project } from "@shared/schema";
+import { PlanningWindow, Project, InterestArea } from "@shared/schema";
 import { 
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, 
   isWithinInterval, addDays, startOfWeek, endOfWeek, startOfDay, endOfDay, addWeeks, 
@@ -15,12 +15,6 @@ import {
 interface PlanningWindowWithProject extends PlanningWindow {
   project: Project | null;
   interestArea: InterestArea | null;
-}
-
-interface InterestArea {
-  id: string;
-  name: string;
-  color: string | null;
 }
 
 interface GlobalPlanningCalendarProps {
@@ -397,6 +391,97 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
     return hours * 60 + minutes;
   };
 
+  // Funzione per verificare se due eventi si sovrappongono temporalmente
+  const doEventsOverlap = (event1: { startTime: string; endTime: string }, event2: { startTime: string; endTime: string }) => {
+    const start1 = timeToMinutes(event1.startTime);
+    const end1 = timeToMinutes(event1.endTime);
+    const start2 = timeToMinutes(event2.startTime);
+    const end2 = timeToMinutes(event2.endTime);
+    
+    return start1 < end2 && start2 < end1;
+  };
+
+  // Funzione per calcolare le colonne di affiancamento per eventi sovrapposti usando gruppi di conflitto
+  const calculateEventColumns = (events: ExpandedPlanningInstance[]) => {
+    if (events.length === 0) return [];
+    
+    // Crea gruppi di conflitto: eventi che si sovrappongono devono stare nello stesso gruppo
+    const conflictGroups: Set<ExpandedPlanningInstance>[] = [];
+    const eventToGroup = new Map<ExpandedPlanningInstance, Set<ExpandedPlanningInstance>>();
+    
+    events.forEach(event => {
+      // Trova tutti i gruppi con cui questo evento si sovrappone
+      const overlappingGroups = conflictGroups.filter(group => 
+        Array.from(group).some(other => doEventsOverlap(event, other))
+      );
+      
+      if (overlappingGroups.length === 0) {
+        // Nessuna sovrapposizione, crea nuovo gruppo
+        const newGroup = new Set([event]);
+        conflictGroups.push(newGroup);
+        eventToGroup.set(event, newGroup);
+      } else if (overlappingGroups.length === 1) {
+        // Si sovrappone con un solo gruppo, aggiungilo
+        overlappingGroups[0].add(event);
+        eventToGroup.set(event, overlappingGroups[0]);
+      } else {
+        // Si sovrappone con più gruppi, uniscili tutti
+        const mergedGroup = new Set([event]);
+        overlappingGroups.forEach(group => {
+          group.forEach(e => {
+            mergedGroup.add(e);
+            eventToGroup.set(e, mergedGroup);
+          });
+          conflictGroups.splice(conflictGroups.indexOf(group), 1);
+        });
+        conflictGroups.push(mergedGroup);
+      }
+    });
+    
+    // Ora assegna le colonne all'interno di ogni gruppo
+    const columns: { instance: ExpandedPlanningInstance; column: number; totalColumns: number }[] = [];
+    
+    conflictGroups.forEach(group => {
+      const groupEvents = Array.from(group).sort((a, b) => 
+        timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
+      );
+      
+      const groupColumns: number[] = [];
+      
+      groupEvents.forEach(event => {
+        // Trova le colonne già occupate da eventi sovrapposti in questo gruppo
+        const usedColumns = new Set<number>();
+        groupEvents.forEach((other, otherIdx) => {
+          if (other !== event && doEventsOverlap(event, other) && groupColumns[groupEvents.indexOf(other)] !== undefined) {
+            usedColumns.add(groupColumns[groupEvents.indexOf(other)]);
+          }
+        });
+        
+        // Trova la prima colonna disponibile
+        let column = 0;
+        while (usedColumns.has(column)) {
+          column++;
+        }
+        
+        groupColumns[groupEvents.indexOf(event)] = column;
+      });
+      
+      // Trova il numero totale di colonne necessarie per questo gruppo
+      const totalColumns = Math.max(...groupColumns) + 1;
+      
+      // Assegna i risultati
+      groupEvents.forEach((event, idx) => {
+        columns.push({
+          instance: event,
+          column: groupColumns[idx],
+          totalColumns: totalColumns
+        });
+      });
+    });
+    
+    return columns;
+  };
+
   // Render functions for different views
   const renderMonthView = () => {
     const { start: calendarStart, end: calendarEnd } = getDateRange();
@@ -429,6 +514,9 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
       // IMPORTANTE: Usa l'altezza totale della cella (140px) per calcoli proporzioni corrette
       const totalCellHeight = FIXED_DAY_HEIGHT; // 140px per proporzioni corrette
       
+      // Calcola colonne di affiancamento per eventi sovrapposti
+      const eventColumns = calculateEventColumns(instances);
+      
       // Raggruppa per livello
       const byLevel = instances.reduce((acc, instance) => {
         if (!acc[instance.level]) acc[instance.level] = [];
@@ -447,6 +535,9 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
           const endMinutes = timeToMinutes(instance.endTime);
           const durationMinutes = endMinutes - startMinutes;
           
+          // Trova le informazioni sulla colonna per questo evento
+          const columnInfo = eventColumns.find(c => c.instance === instance) || { column: 0, totalColumns: 1 };
+          
           // Se c'è un parent bound, calcola le coordinate relative al padre
           let relativeStart = startMinutes;
           let relativeHeight = totalCellHeight; // Usa altezza totale per proporzioni corrette
@@ -460,10 +551,15 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
           
           // Calcola proporzioni usando altezza totale cella (140px): 8 ore = 1/3 = ~47px
           const topPosition = relativeTop + (relativeStart / (parentBounds ? (parentBounds.end - parentBounds.start) : minutesInDay)) * relativeHeight;
-          const height = Math.max(16, (durationMinutes / (parentBounds ? (parentBounds.end - parentBounds.start) : minutesInDay)) * relativeHeight);
+          const height = Math.max(20, (durationMinutes / (parentBounds ? (parentBounds.end - parentBounds.start) : minutesInDay)) * relativeHeight);
           
           // Determina se questo è un progetto padre (ha figli) - per ora tutti i progetti level 0 sono padri
           const hasChildren = level === 0 && instances.some(other => other.level > level);
+          
+          // Calcola left e width in base alla colonna
+          const baseIndent = getLevelIndentation(level);
+          const columnWidth = 100 / columnInfo.totalColumns;
+          const leftPercent = columnInfo.column * columnWidth;
           
           result.push(
             <div
@@ -473,8 +569,8 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
               style={{ 
                 top: `${topPosition}px`,
                 height: `${height}px`,
-                left: `${getLevelIndentation(level)}px`,
-                right: `${getLevelIndentation(level)}px`,
+                left: `calc(${leftPercent}% + ${baseIndent}px)`,
+                width: `calc(${columnWidth}% - ${baseIndent * 2}px)`,
                 zIndex: hasChildren ? level : 10 + level,
                 opacity: hasChildren ? 0.4 : 1
               }}
@@ -485,7 +581,12 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                 onMouseEnter={() => setHoveredWindowId(instance.window.id)}
                 onMouseLeave={() => setHoveredWindowId(null)}
               >
-                {/* Empty div with background color only */}
+                {/* Icona area di interesse per altezza sufficiente */}
+                {height >= 24 && instance.interestArea?.icon && (
+                  <div className="flex items-center justify-center h-full opacity-50">
+                    <span className="text-lg">{instance.interestArea.icon}</span>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -630,44 +731,62 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                   ))}
                   
                   {/* Eventi sovrapposti come box continui */}
-                  {dayInstances.map((instance, idx) => {
-                    const startMinutes = timeToMinutes(instance.startTime);
-                    const endMinutes = timeToMinutes(instance.endTime);
-                    const durationMinutes = endMinutes - startMinutes;
-                    
-                    const topPosition = (startMinutes / 60) * hourHeight;
-                    const height = (durationMinutes / 60) * hourHeight;
-                    
-                    return (
-                      <div
-                        key={`${instance.window.id}-${idx}`}
-                        onClick={() => onWindowSelect?.(instance.window)}
-                        className="absolute cursor-pointer z-10"
-                        style={{ 
-                          top: `${topPosition}px`,
-                          height: `${height}px`,
-                          left: `${2 + getLevelIndentation(instance.level)}px`,
-                          right: `${2 + getLevelIndentation(instance.level)}px`,
-                        }}
-                      >
-                        <div 
-                          className={`hover:opacity-80 text-xs p-2 rounded border h-full overflow-hidden`}
-                          style={getProjectColorStyle(getPlanningWindowColor({ project: instance.project, interestArea: instance.interestArea }), instance.level)}
+                  {(() => {
+                    const eventColumns = calculateEventColumns(dayInstances);
+                    return dayInstances.map((instance, idx) => {
+                      const startMinutes = timeToMinutes(instance.startTime);
+                      const endMinutes = timeToMinutes(instance.endTime);
+                      const durationMinutes = endMinutes - startMinutes;
+                      
+                      const topPosition = (startMinutes / 60) * hourHeight;
+                      const height = Math.max(40, (durationMinutes / 60) * hourHeight);
+                      
+                      const columnInfo = eventColumns.find(c => c.instance === instance) || { column: 0, totalColumns: 1 };
+                      const baseIndent = 2 + getLevelIndentation(instance.level);
+                      const columnWidth = 100 / columnInfo.totalColumns;
+                      const leftPercent = columnInfo.column * columnWidth;
+                      
+                      return (
+                        <div
+                          key={`${instance.window.id}-${idx}`}
+                          onClick={() => onWindowSelect?.(instance.window)}
+                          className="absolute cursor-pointer z-10"
+                          style={{ 
+                            top: `${topPosition}px`,
+                            height: `${height}px`,
+                            left: `calc(${leftPercent}% + ${baseIndent}px)`,
+                            width: `calc(${columnWidth}% - ${baseIndent * 2}px)`,
+                          }}
                         >
-                          <div className="font-medium truncate">
-                            {instance.window.name}
-                          </div>
-                          <div className="text-[10px] opacity-75">
-                            {instance.startTime} - {instance.endTime}
-                          </div>
-                          <div className="text-[9px] opacity-75 truncate">
-                            {instance.project?.name || 'Nessun progetto'}
-                            {instance.level > 0 && <span className="ml-1">{'→'.repeat(instance.level)}</span>}
+                          <div 
+                            className={`hover:opacity-80 text-xs p-2 rounded border h-full overflow-hidden flex flex-col`}
+                            style={getProjectColorStyle(getPlanningWindowColor({ project: instance.project, interestArea: instance.interestArea }), instance.level)}
+                          >
+                            {instance.interestArea?.icon && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm">{instance.interestArea.icon}</span>
+                                <div className="font-medium truncate flex-1">
+                                  {instance.window.name}
+                                </div>
+                              </div>
+                            )}
+                            {!instance.interestArea?.icon && (
+                              <div className="font-medium truncate">
+                                {instance.window.name}
+                              </div>
+                            )}
+                            <div className="text-[10px] opacity-75">
+                              {instance.startTime} - {instance.endTime}
+                            </div>
+                            <div className="text-[9px] opacity-75 truncate">
+                              {instance.project?.name || instance.interestArea?.name || 'Nessun progetto'}
+                              {instance.level > 0 && <span className="ml-1">{'→'.repeat(instance.level)}</span>}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               );
             })}
@@ -734,53 +853,71 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
               ))}
               
               {/* Eventi sovrapposti */}
-              {dayInstances.map((instance, idx) => {
-                const startMinutes = timeToMinutes(instance.startTime);
-                const endMinutes = timeToMinutes(instance.endTime);
-                const durationMinutes = endMinutes - startMinutes;
-                
-                const topPosition = (startMinutes / 60) * hourHeight;
-                const height = (durationMinutes / 60) * hourHeight;
-                
-                return (
-                  <div
-                    key={`${instance.window.id}-${idx}`}
-                    onClick={() => onWindowSelect?.(instance.window)}
-                    className="absolute cursor-pointer z-10"
-                    style={{ 
-                      top: `${topPosition}px`,
-                      height: `${height}px`,
-                      left: `${8 + getLevelIndentation(instance.level)}px`,
-                      right: `${8 + getLevelIndentation(instance.level)}px`,
-                    }}
-                  >
-                    <div 
-                      className={`hover:opacity-80 p-3 rounded border h-full overflow-hidden flex flex-col`}
-                      style={getProjectColorStyle(getProjectHierarchyColor(instance.project), instance.level)}
+              {(() => {
+                const eventColumns = calculateEventColumns(dayInstances);
+                return dayInstances.map((instance, idx) => {
+                  const startMinutes = timeToMinutes(instance.startTime);
+                  const endMinutes = timeToMinutes(instance.endTime);
+                  const durationMinutes = endMinutes - startMinutes;
+                  
+                  const topPosition = (startMinutes / 60) * hourHeight;
+                  const height = Math.max(60, (durationMinutes / 60) * hourHeight);
+                  
+                  const columnInfo = eventColumns.find(c => c.instance === instance) || { column: 0, totalColumns: 1 };
+                  const baseIndent = 8 + getLevelIndentation(instance.level);
+                  const columnWidth = 100 / columnInfo.totalColumns;
+                  const leftPercent = columnInfo.column * columnWidth;
+                  
+                  return (
+                    <div
+                      key={`${instance.window.id}-${idx}`}
+                      onClick={() => onWindowSelect?.(instance.window)}
+                      className="absolute cursor-pointer z-10"
+                      style={{ 
+                        top: `${topPosition}px`,
+                        height: `${height}px`,
+                        left: `calc(${leftPercent}% + ${baseIndent}px)`,
+                        width: `calc(${columnWidth}% - ${baseIndent * 2}px)`,
+                      }}
                     >
-                      <div className="font-medium truncate">
-                        {instance.window.name}
-                      </div>
-                      <div className="text-sm opacity-75 mt-1">
-                        {instance.startTime} - {instance.endTime}
-                      </div>
-                      <div className="text-sm opacity-75 mt-1">
-                        {instance.project?.name || 'Nessun progetto'}
-                        {instance.level > 0 && (
-                          <span className="ml-2">
-                            {'→'.repeat(instance.level)}
-                          </span>
+                      <div 
+                        className={`hover:opacity-80 p-3 rounded border h-full overflow-hidden flex flex-col`}
+                        style={getProjectColorStyle(getPlanningWindowColor({ project: instance.project, interestArea: instance.interestArea }), instance.level)}
+                      >
+                        {instance.interestArea?.icon && (
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xl">{instance.interestArea.icon}</span>
+                            <div className="font-medium truncate flex-1">
+                              {instance.window.name}
+                            </div>
+                          </div>
+                        )}
+                        {!instance.interestArea?.icon && (
+                          <div className="font-medium truncate">
+                            {instance.window.name}
+                          </div>
+                        )}
+                        <div className="text-sm opacity-75 mt-1">
+                          {instance.startTime} - {instance.endTime}
+                        </div>
+                        <div className="text-sm opacity-75 mt-1">
+                          {instance.project?.name || instance.interestArea?.name || 'Nessun progetto'}
+                          {instance.level > 0 && (
+                            <span className="ml-2">
+                              {'→'.repeat(instance.level)}
+                            </span>
+                          )}
+                        </div>
+                        {instance.project?.description && height > 120 && (
+                          <div className="text-xs opacity-60 mt-2 flex-1 overflow-hidden">
+                            {instance.project.description}
+                          </div>
                         )}
                       </div>
-                      {instance.project?.description && height > 120 && (
-                        <div className="text-xs opacity-60 mt-2 flex-1 overflow-hidden">
-                          {instance.project.description}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
@@ -911,12 +1048,14 @@ export default function GlobalPlanningCalendar({ onWindowSelect }: GlobalPlannin
                 >
                   <div className="flex items-start gap-2">
                     <div 
-                      className="w-4 h-4 rounded border flex-shrink-0 mt-0.5"
+                      className="w-4 h-4 rounded border flex-shrink-0 mt-0.5 flex items-center justify-center text-[8px]"
                       style={{ 
                         backgroundColor: getPlanningWindowColor({ project, interestArea }),
                         borderColor: getPlanningWindowColor({ project, interestArea })
                       }}
-                    />
+                    >
+                      {interestArea?.icon && <span>{interestArea.icon}</span>}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">
                         {window.name}
