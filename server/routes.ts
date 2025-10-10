@@ -1850,6 +1850,90 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     }
   });
 
+  // Update planning window and recreate future instances (special logic for calendar editing)
+  app.put("/api/planning-windows/:id/update-and-recreate-future", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const windowId = req.params.id;
+      const userId = req.user!.id;
+      
+      // Get the original planning window
+      const originalWindow = await storage.getPlanningWindow(windowId, userId);
+      if (!originalWindow) return res.sendStatus(404);
+      
+      // Parse the new data
+      const newData = {
+        name: req.body.name || originalWindow.name,
+        startTime: req.body.startTime || originalWindow.startTime,
+        endTime: req.body.endTime || originalWindow.endTime,
+        workingHoursPerDay: req.body.workingHoursPerDay || originalWindow.workingHoursPerDay,
+        notes: req.body.notes !== undefined ? req.body.notes : originalWindow.notes,
+        isActive: req.body.isActive !== undefined ? req.body.isActive : originalWindow.isActive,
+        propagateUntil: req.body.propagateUntil ? new Date(req.body.propagateUntil) : null,
+      };
+      
+      // Find all planning windows with the same name from the current date onwards
+      const allWindows = await storage.getPlanningWindows(userId);
+      const windowsToDelete = allWindows.filter(w => 
+        w.name === originalWindow.name && 
+        w.startDate >= originalWindow.startDate &&
+        w.id !== windowId // Don't delete the current window
+      );
+      
+      // Delete future instances that don't have projects
+      const deletePromises = windowsToDelete
+        .filter(w => !w.projectId)
+        .map(w => storage.deletePlanningWindow(w.id, userId));
+      await Promise.all(deletePromises);
+      
+      // Update the current window
+      await storage.updatePlanningWindow(windowId, {
+        name: newData.name,
+        startTime: newData.startTime,
+        endTime: newData.endTime,
+        workingHoursPerDay: newData.workingHoursPerDay,
+        notes: newData.notes,
+        isActive: newData.isActive,
+      }, userId);
+      
+      // If propagateUntil is specified, create new instances
+      if (newData.propagateUntil && newData.propagateUntil > originalWindow.startDate) {
+        const newWindows: InsertPlanningWindow[] = [];
+        let currentDate = new Date(originalWindow.startDate);
+        currentDate.setDate(currentDate.getDate() + 1); // Start from the next day
+        
+        while (currentDate <= newData.propagateUntil) {
+          newWindows.push({
+            userId,
+            projectId: originalWindow.projectId,
+            interestAreaId: originalWindow.interestAreaId,
+            name: newData.name,
+            startDate: new Date(currentDate),
+            endDate: new Date(currentDate),
+            startTime: newData.startTime,
+            endTime: newData.endTime,
+            workingHoursPerDay: newData.workingHoursPerDay,
+            isActive: newData.isActive,
+            recurrenceType: 'none',
+            daysOfWeek: [],
+            recurrenceInterval: 1,
+            recurrenceEnd: null,
+            notes: newData.notes,
+          });
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        // Create all new windows
+        await Promise.all(newWindows.map(w => storage.createPlanningWindow(w)));
+      }
+      
+      res.json({ success: true, deletedCount: deletePromises.length });
+    } catch (error) {
+      console.error("Planning window update and recreate error:", error);
+      res.status(400).json({ error: "Failed to update planning window", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   app.delete("/api/planning-windows/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const deleted = await storage.deletePlanningWindow(req.params.id, req.user!.id);
