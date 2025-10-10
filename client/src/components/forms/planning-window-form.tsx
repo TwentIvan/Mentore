@@ -13,7 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Calendar, Clock } from "lucide-react";
+import { Loader2, Calendar, Clock, Copy } from "lucide-react";
+import { addDays, differenceInDays } from "date-fns";
 
 const formSchema = insertPlanningWindowSchema.extend({
   startDate: z.string().min(1, "Start date is required"),
@@ -25,6 +26,8 @@ const formSchema = insertPlanningWindowSchema.extend({
   daysOfWeek: z.array(z.number().min(1).max(7)).optional(),
   recurrenceInterval: z.string().optional(),
   recurrenceEnd: z.string().optional(),
+  propagateEnabled: z.boolean().default(false),
+  propagateUntil: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -55,39 +58,94 @@ export default function PlanningWindowForm({ projectId, planningWindow, onSucces
       recurrenceInterval: (planningWindow?.recurrenceInterval || 1).toString(),
       recurrenceEnd: planningWindow?.recurrenceEnd ? new Date(planningWindow.recurrenceEnd).toISOString().split('T')[0] : "",
       notes: planningWindow?.notes || "",
+      propagateEnabled: false,
+      propagateUntil: "",
     },
   });
 
   const savePlanningWindowMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const windowData = {
-        ...data,
-        projectId,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-        startTime: data.startTime,
-        endTime: data.endTime,
-        workingHoursPerDay: data.workingHoursPerDay ? parseInt(data.workingHoursPerDay) : 8,
-        recurrenceType: data.recurrenceType,
-        daysOfWeek: data.daysOfWeek || [],
-        recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : 1,
-        recurrenceEnd: data.recurrenceEnd ? new Date(data.recurrenceEnd) : null,
-      };
-      
       if (planningWindow) {
-        // Edit existing planning window
+        // Edit existing planning window - no propagation for edit
+        const windowData = {
+          ...data,
+          projectId,
+          startDate: new Date(data.startDate),
+          endDate: new Date(data.endDate),
+          startTime: data.startTime,
+          endTime: data.endTime,
+          workingHoursPerDay: data.workingHoursPerDay ? parseInt(data.workingHoursPerDay) : 8,
+          recurrenceType: data.recurrenceType,
+          daysOfWeek: data.daysOfWeek || [],
+          recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : 1,
+          recurrenceEnd: data.recurrenceEnd ? new Date(data.recurrenceEnd) : null,
+        };
         const res = await apiRequest("PUT", `/api/planning-windows/${planningWindow.id}`, windowData);
         return res.json();
       } else {
-        // Create new planning window
-        const res = await apiRequest("POST", "/api/planning-windows", windowData);
-        return res.json();
+        // Create new planning window(s)
+        if (data.propagateEnabled && data.propagateUntil) {
+          // Create multiple planning windows (one per day)
+          const startDate = new Date(data.startDate);
+          const endDate = new Date(data.propagateUntil);
+          const daysDiff = differenceInDays(endDate, startDate);
+          
+          if (daysDiff < 0) {
+            throw new Error("La data 'fino a' deve essere successiva alla data di inizio");
+          }
+          
+          const createPromises = [];
+          for (let i = 0; i <= daysDiff; i++) {
+            const currentDay = addDays(startDate, i);
+            const windowData = {
+              ...data,
+              projectId,
+              name: data.name,
+              startDate: currentDay,
+              endDate: currentDay, // Same day for propagated windows
+              startTime: data.startTime,
+              endTime: data.endTime,
+              workingHoursPerDay: data.workingHoursPerDay ? parseInt(data.workingHoursPerDay) : 8,
+              recurrenceType: "none", // No recurrence for propagated windows
+              daysOfWeek: [],
+              recurrenceInterval: 1,
+              recurrenceEnd: null,
+            };
+            createPromises.push(
+              apiRequest("POST", "/api/planning-windows", windowData).then(res => res.json())
+            );
+          }
+          
+          return Promise.all(createPromises);
+        } else {
+          // Create single planning window
+          const windowData = {
+            ...data,
+            projectId,
+            startDate: new Date(data.startDate),
+            endDate: new Date(data.endDate),
+            startTime: data.startTime,
+            endTime: data.endTime,
+            workingHoursPerDay: data.workingHoursPerDay ? parseInt(data.workingHoursPerDay) : 8,
+            recurrenceType: data.recurrenceType,
+            daysOfWeek: data.daysOfWeek || [],
+            recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : 1,
+            recurrenceEnd: data.recurrenceEnd ? new Date(data.recurrenceEnd) : null,
+          };
+          const res = await apiRequest("POST", "/api/planning-windows", windowData);
+          return res.json();
+        }
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/planning-windows"] });
+      const count = Array.isArray(result) ? result.length : 1;
       toast({ 
-        title: planningWindow ? "Planning window updated successfully" : "Planning window created successfully" 
+        title: planningWindow 
+          ? "Finestra di pianificazione aggiornata con successo" 
+          : count > 1 
+            ? `${count} finestre di pianificazione create con successo`
+            : "Finestra di pianificazione creata con successo"
       });
       onSuccess?.();
     },
@@ -183,6 +241,59 @@ export default function PlanningWindowForm({ projectId, planningWindow, onSucces
                 )}
               />
             </div>
+
+            {/* Propagation - only for new windows */}
+            {!planningWindow && (
+              <div className="space-y-3 pt-2 border-t">
+                <FormField
+                  control={form.control}
+                  name="propagateEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base flex items-center gap-2">
+                          <Copy className="h-4 w-4" />
+                          Propaga su più giorni
+                        </FormLabel>
+                        <div className="text-[0.8rem] text-muted-foreground">
+                          Crea una finestra di pianificazione per ogni giorno nel periodo
+                        </div>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="switch-propagate-enabled"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("propagateEnabled") && (
+                  <FormField
+                    control={form.control}
+                    name="propagateUntil"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Propaga fino a</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="date"
+                            {...field}
+                            data-testid="input-propagate-until"
+                          />
+                        </FormControl>
+                        <div className="text-[0.8rem] text-muted-foreground">
+                          Verrà creata una finestra separata per ogni giorno tra la data di inizio e questa data
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
