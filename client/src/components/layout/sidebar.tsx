@@ -22,20 +22,22 @@ function NavItem({ item, isActive }: { item: any; isActive: boolean }) {
 
   return (
     <div 
-      className="w-full p-2 rounded-md group flex items-center cursor-pointer transition-colors sidebar-nav-item text-muted-foreground hover:bg-muted/20"
+      className="w-full p-2 rounded-md group flex items-center cursor-pointer transition-all sidebar-nav-item"
       data-testid={item.testId}
       onClick={() => setLocation(item.href)}
     >
       <div 
-        className="flex items-center px-3 py-2 rounded-md nav-box transition-colors flex-1" 
+        className="flex items-center px-4 py-3 rounded-lg nav-box transition-all flex-1 group-hover:bg-[#D4A574]" 
         style={{ 
           backgroundColor: isActive ? 'hsl(160, 15%, 55%, 0.3)' : 'hsl(160, 15%, 55%, 0.1)', 
           border: '1px solid hsl(160, 15%, 55%, 0.2)', 
-          minWidth: '240px', 
-          maxWidth: '240px' 
+          minWidth: '260px', 
+          maxWidth: '260px' 
         }}
       >
-        <Icon className="h-5 w-5 flex-shrink-0 mr-3 text-muted-foreground" />
+        <div className="flex items-center justify-center w-9 h-9 rounded-md mr-3 flex-shrink-0 transition-all" style={{ backgroundColor: '#D4A574' }}>
+          <Icon className="h-5 w-5 text-white transition-all group-hover:text-green-600" />
+        </div>
         <span className="text-base font-medium flex-1 text-muted-foreground">{item.name}</span>
       </div>
     </div>
