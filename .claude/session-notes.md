@@ -4,7 +4,8 @@
 Fase 2 del modulo budget: integrazione di un agente AI che propone una struttura di budget (categorie + voci pianificate) analizzando lo storico transazioni + una nota facoltativa dell'utente.
 
 ## Stato
-- COMPLETATO e committato/pushato su `claude/budget-structure-agent-ewyaom` (commit `5f740aa`, nessuna modifica pendente in working tree).
+- COMPLETATO e committato/pushato su `claude/budget-structure-agent-ewyaom` (ultimo commit `2b44196`, nessuna modifica pendente in working tree).
+- PR aperta verso `main`: https://github.com/TwentIvan/Mentore/pull/1 (non ancora revisionata/mergiata dall'utente). Nessuna CI configurata nel repo, quindi nessun check automatico da monitorare.
 - `npm run check`: stessi errori pre-esistenti di prima (baseline 77 → dopo le modifiche 76, nessun errore nuovo introdotto dal codice aggiunto; verificato con `git stash` diff).
 - INCOMPLETO: `npm run db:push` **non eseguito** — questo ambiente non ha `DATABASE_URL`/`OPENAI_API_KEY` configurati, quindi la tabella `budget_proposals` esiste solo nello schema Drizzle, non nel DB reale. Va applicata in un ambiente con DB prima di testare a mano.
 - Non testato a mano in browser (nessun DB/OpenAI key disponibili in questo ambiente).
@@ -23,6 +24,7 @@ Fase 2 del modulo budget: integrazione di un agente AI che propone una struttura
 - Niente nuova voce in sidebar: la feature è un tab dentro la pagina Budget esistente, non una nuova area di primo livello.
 
 ## Prossimi passi
-1. In un ambiente con `DATABASE_URL` configurato: eseguire `npm run db:push` per creare la tabella `budget_proposals`.
-2. Con `OPENAI_API_KEY` configurata: testare a mano il flusso — generare proposta (con e senza nota, con e senza storico transazioni), verificare apply (creazione categorie/plan items) e reject.
-3. Valutare se aggiungere audit trail (`AuditHistory`) anche sulle `budget_proposals` stesse, o se basta quello già presente su categorie/plan items create dall'apply.
+1. Revisionare/mergiare la PR #1 (https://github.com/TwentIvan/Mentore/pull/1), oppure segnalare modifiche richieste.
+2. In un ambiente con `DATABASE_URL` configurato: eseguire `npm run db:push` per creare la tabella `budget_proposals`.
+3. Con `OPENAI_API_KEY` configurata: testare a mano il flusso — generare proposta (con e senza nota, con e senza storico transazioni), verificare apply (creazione categorie/plan items) e reject.
+4. Valutare se aggiungere audit trail (`AuditHistory`) anche sulle `budget_proposals` stesse, o se basta quello già presente su categorie/plan items create dall'apply.
