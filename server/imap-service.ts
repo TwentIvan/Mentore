@@ -129,20 +129,29 @@ export class ImapEmailService {
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
     const searchDate = ninetyDaysAgo.toISOString().split('T')[0];
     
-    this.imap.search([['SINCE', searchDate]], (err: Error | null, results: number[]) => {
-      if (err) {
-        console.error('[IMAP] Search error:', err);
-        return;
-      }
+    try {
+      this.imap.search([['SINCE', searchDate]], (err: Error | null, results: number[]) => {
+        if (err) {
+          console.error('[IMAP] Search error:', err);
+          if (err.message && err.message.includes('No mailbox is currently selected')) {
+            console.warn('[IMAP] Mailbox not selected, marking as disconnected and reconnecting...');
+            this.isConnected = false;
+          }
+          return;
+        }
 
-      if (results.length === 0) {
-        console.log('[IMAP] No new emails');
-        return;
-      }
+        if (results.length === 0) {
+          console.log('[IMAP] No new emails');
+          return;
+        }
 
-      console.log(`[IMAP] Found ${results.length} new emails`);
-      this.processEmails(results, false); // Don't mark as seen for testing
-    });
+        console.log(`[IMAP] Found ${results.length} new emails`);
+        this.processEmails(results, false); // Don't mark as seen for testing
+      });
+    } catch (err: any) {
+      console.error('[IMAP] Exception during search, marking as disconnected:', err.message || err);
+      this.isConnected = false;
+    }
   }
 
   private processEmails(uids: number[], markSeen: boolean = true) {
