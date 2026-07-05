@@ -1738,7 +1738,12 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
       const organizationIds = await getOrganizationIdsForFilter(req);
       const accounts = await db.select().from(budgetAccounts)
         .where(and(eq(budgetAccounts.userId, req.user!.id), inArray(budgetAccounts.organizationId, organizationIds)));
-      res.json(accounts);
+      const balances = await storage.getBudgetAccountBalances(organizationIds);
+      const accountsWithBalance = accounts.map(acc => ({
+        ...acc,
+        currentBalance: Number(acc.initialBalance) + (balances.get(acc.id) || 0),
+      }));
+      res.json(accountsWithBalance);
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid request' });
     }

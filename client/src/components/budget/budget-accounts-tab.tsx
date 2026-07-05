@@ -16,6 +16,8 @@ import type { BudgetAccount } from "@shared/schema";
 import BudgetAccountForm from "@/components/forms/budget-account-form";
 import AuditHistory from "@/components/ui/audit-history";
 
+type BudgetAccountWithBalance = BudgetAccount & { currentBalance: number };
+
 const accountTypeLabels: Record<string, string> = {
   conto_corrente: "Conto Corrente",
   carta_credito: "Carta di Credito",
@@ -30,11 +32,12 @@ const availableColumns = [
   { id: "type", label: "Tipo" },
   { id: "institution", label: "Istituto" },
   { id: "initialBalance", label: "Saldo Iniziale" },
+  { id: "currentBalance", label: "Saldo Attuale" },
 ];
 
 export default function BudgetAccountsTab() {
-  const [selected, setSelected] = useState<BudgetAccount[]>([]);
-  const [editing, setEditing] = useState<BudgetAccount | null>(null);
+  const [selected, setSelected] = useState<BudgetAccountWithBalance[]>([]);
+  const [editing, setEditing] = useState<BudgetAccountWithBalance | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
@@ -46,7 +49,7 @@ export default function BudgetAccountsTab() {
   const { currentOrganizationId } = useOrganization();
   const { currentLayoutName, savedLayouts, updateLayout, loadLayout, renameLayout, deleteLayout } = useTableLayout("budget-accounts");
 
-  const { data: accounts = [], isLoading } = useQuery<BudgetAccount[]>({
+  const { data: accounts = [], isLoading } = useQuery<BudgetAccountWithBalance[]>({
     queryKey: ["/api/budget-accounts"],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!currentOrganizationId,
@@ -63,7 +66,7 @@ export default function BudgetAccountsTab() {
   });
 
   const bulkDeleteMutation = useMutation({
-    mutationFn: async (items: BudgetAccount[]) => {
+    mutationFn: async (items: BudgetAccountWithBalance[]) => {
       for (const item of items) await apiRequest("DELETE", `/api/budget-accounts/${item.id}`);
     },
     onSuccess: () => {
@@ -81,7 +84,7 @@ export default function BudgetAccountsTab() {
       label: "Tipo",
       sortable: true,
       searchable: false,
-      render: (acc: BudgetAccount) => accountTypeLabels[acc.type] || acc.type,
+      render: (acc: BudgetAccountWithBalance) => accountTypeLabels[acc.type] || acc.type,
     },
     createStandardColumns.text("institution", "Istituto"),
     {
@@ -89,11 +92,22 @@ export default function BudgetAccountsTab() {
       label: "Saldo Iniziale",
       sortable: true,
       searchable: false,
-      render: (acc: BudgetAccount) => `€${parseFloat(acc.initialBalance).toLocaleString()}`,
+      render: (acc: BudgetAccountWithBalance) => `€${parseFloat(acc.initialBalance).toLocaleString()}`,
+    },
+    {
+      key: "currentBalance",
+      label: "Saldo Attuale",
+      sortable: true,
+      searchable: false,
+      render: (acc: BudgetAccountWithBalance) => (
+        <span className={acc.currentBalance < 0 ? "text-destructive font-medium" : "font-medium"}>
+          €{acc.currentBalance.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      ),
     },
     createStandardColumns.actions([
-      { label: "Modifica", icon: Edit, onClick: (acc: BudgetAccount) => { setEditing(acc); setShowForm(true); } },
-      { label: "Elimina", icon: Trash2, onClick: (acc: BudgetAccount) => { setEditing(acc); setShowDeleteDialog(true); } },
+      { label: "Modifica", icon: Edit, onClick: (acc: BudgetAccountWithBalance) => { setEditing(acc); setShowForm(true); } },
+      { label: "Elimina", icon: Trash2, onClick: (acc: BudgetAccountWithBalance) => { setEditing(acc); setShowDeleteDialog(true); } },
     ]),
   ];
 
@@ -132,10 +146,10 @@ export default function BudgetAccountsTab() {
           data={accounts}
           columns={columns}
           enableSelection
-          onSelectionChange={(rows) => setSelected(rows as BudgetAccount[])}
-          onRowClick={(acc: BudgetAccount) => { setEditing(acc); setShowForm(true); }}
+          onSelectionChange={(rows) => setSelected(rows as BudgetAccountWithBalance[])}
+          onRowClick={(acc: BudgetAccountWithBalance) => { setEditing(acc); setShowForm(true); }}
           bulkActions={[
-            { label: "Elimina Selezionati", icon: Trash2, variant: "destructive", onClick: (rows) => { setSelected(rows as BudgetAccount[]); setShowBulkDeleteDialog(true); } },
+            { label: "Elimina Selezionati", icon: Trash2, variant: "destructive", onClick: (rows) => { setSelected(rows as BudgetAccountWithBalance[]); setShowBulkDeleteDialog(true); } },
           ]}
         />
       )}

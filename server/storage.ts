@@ -59,7 +59,7 @@ import {
   type BudgetTransaction, type InsertBudgetTransaction
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc, isNotNull } from "drizzle-orm";
+import { eq, and, desc, asc, isNotNull, inArray } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import MemoryStore from "memorystore";
@@ -193,6 +193,7 @@ export interface IStorage {
 
   // Budget Summary (pianificato vs effettivo)
   getBudgetSummary(organizationId: string, year: number, month: number): Promise<BudgetSummary>;
+  getBudgetAccountBalances(organizationIds: string[]): Promise<Map<string, number>>;
 
   // Calendar Events
   getCalendarEvents(userId: string): Promise<CalendarEvent[]>;
@@ -1815,6 +1816,18 @@ export class DatabaseStorage implements IStorage {
     totals.actualSavings = totals.actualIncome - totals.actualExpense;
 
     return { year, month, categories: categoryRows, totals };
+  }
+
+  // Saldo attuale per conto = saldo iniziale + somma firmata dei movimenti registrati
+  async getBudgetAccountBalances(organizationIds: string[]): Promise<Map<string, number>> {
+    const transactions = await db.select().from(budgetTransactions)
+      .where(inArray(budgetTransactions.organizationId, organizationIds));
+    const deltaByAccount = new Map<string, number>();
+    for (const tx of transactions) {
+      const signed = tx.type === "income" ? Number(tx.amount) : -Number(tx.amount);
+      deltaByAccount.set(tx.accountId, (deltaByAccount.get(tx.accountId) || 0) + signed);
+    }
+    return deltaByAccount;
   }
 
   // Calendar Events
