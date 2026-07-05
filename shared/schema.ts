@@ -1732,3 +1732,135 @@ export const challengeDefinitionsRelations = relations(challengeDefinitions, ({ 
   instances: many(challengeInstances),
 }));
 
+// ===== Budget =====
+
+export const budgetEntryTypeEnum = pgEnum("budget_entry_type", ["income", "expense"]);
+export const budgetAccountTypeEnum = pgEnum("budget_account_type", ["conto_corrente", "carta_credito", "carta_debito", "contanti", "conto_risparmio", "altro"]);
+export const budgetSyncSourceEnum = pgEnum("budget_sync_source", ["manuale", "open_banking"]);
+
+export const budgetAccounts = pgTable("budget_accounts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  name: text("name").notNull(),
+  type: budgetAccountTypeEnum("type").notNull(),
+  institution: text("institution"),
+  currency: text("currency").default("EUR").notNull(),
+  initialBalance: decimal("initial_balance", { precision: 10, scale: 2 }).default("0").notNull(),
+  syncSource: budgetSyncSourceEnum("sync_source").default("manuale").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const budgetCategories = pgTable("budget_categories", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  name: text("name").notNull(),
+  type: budgetEntryTypeEnum("type").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const budgetPlanItems = pgTable("budget_plan_items", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  name: text("name").notNull(),
+  type: budgetEntryTypeEnum("type").notNull(),
+  categoryId: uuid("category_id").references(() => budgetCategories.id).notNull(),
+  accountId: uuid("account_id").references(() => budgetAccounts.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  startYear: integer("start_year").notNull(),
+  startMonth: integer("start_month").notNull(), // 1-12
+  intervalMonths: integer("interval_months"), // null = una tantum, N = ricorre ogni N mesi
+  endDate: timestamp("end_date"),
+  isActive: boolean("is_active").default(true).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const budgetTransactions = pgTable("budget_transactions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  accountId: uuid("account_id").references(() => budgetAccounts.id).notNull(),
+  categoryId: uuid("category_id").references(() => budgetCategories.id),
+  planItemId: uuid("plan_item_id").references(() => budgetPlanItems.id),
+  type: budgetEntryTypeEnum("type").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  transactionDate: timestamp("transaction_date").notNull(),
+  description: text("description"),
+  source: budgetSyncSourceEnum("source").default("manuale").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const budgetAccountsRelations = relations(budgetAccounts, ({ many }) => ({
+  planItems: many(budgetPlanItems),
+  transactions: many(budgetTransactions),
+}));
+
+export const budgetCategoriesRelations = relations(budgetCategories, ({ many }) => ({
+  planItems: many(budgetPlanItems),
+  transactions: many(budgetTransactions),
+}));
+
+export const budgetPlanItemsRelations = relations(budgetPlanItems, ({ one, many }) => ({
+  category: one(budgetCategories, { fields: [budgetPlanItems.categoryId], references: [budgetCategories.id] }),
+  account: one(budgetAccounts, { fields: [budgetPlanItems.accountId], references: [budgetAccounts.id] }),
+  transactions: many(budgetTransactions),
+}));
+
+export const budgetTransactionsRelations = relations(budgetTransactions, ({ one }) => ({
+  account: one(budgetAccounts, { fields: [budgetTransactions.accountId], references: [budgetAccounts.id] }),
+  category: one(budgetCategories, { fields: [budgetTransactions.categoryId], references: [budgetCategories.id] }),
+  planItem: one(budgetPlanItems, { fields: [budgetTransactions.planItemId], references: [budgetPlanItems.id] }),
+}));
+
+export const insertBudgetAccountSchema = createInsertSchema(budgetAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  organizationId: true, // Auto-filled from user session
+});
+
+export const insertBudgetCategorySchema = createInsertSchema(budgetCategories).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  organizationId: true,
+});
+
+export const insertBudgetPlanItemSchema = createInsertSchema(budgetPlanItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  organizationId: true,
+}).extend({
+  endDate: z.string().nullish(),
+});
+
+export const insertBudgetTransactionSchema = createInsertSchema(budgetTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  organizationId: true,
+}).extend({
+  transactionDate: z.string(),
+});
+
+export type BudgetAccount = typeof budgetAccounts.$inferSelect;
+export type InsertBudgetAccount = z.infer<typeof insertBudgetAccountSchema>;
+export type BudgetCategory = typeof budgetCategories.$inferSelect;
+export type InsertBudgetCategory = z.infer<typeof insertBudgetCategorySchema>;
+export type BudgetPlanItem = typeof budgetPlanItems.$inferSelect;
+export type InsertBudgetPlanItem = z.infer<typeof insertBudgetPlanItemSchema>;
+export type BudgetTransaction = typeof budgetTransactions.$inferSelect;
+export type InsertBudgetTransaction = z.infer<typeof insertBudgetTransactionSchema>;
+

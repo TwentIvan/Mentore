@@ -19,9 +19,11 @@ import {
   insertOrganizationSchema, insertUserOrganizationSchema, insertOrganizationInvitationSchema,
   insertOrganizationDomainSchema, insertEmailFeedbackSchema, insertEmailTrainingSelectionSchema,
   insertGamificationPointEventSchema, insertChallengeInstanceSchema,
+  insertBudgetAccountSchema, insertBudgetCategorySchema, insertBudgetPlanItemSchema, insertBudgetTransactionSchema,
   type EmailConfig,
   projects, tasks, partners, contacts, messages, deals, calendarEvents, salesOrders, rateAgreements,
-  humanResources, systemCredentials, timesheets, comments, interestAreas, timeAllocationTemplates
+  humanResources, systemCredentials, timesheets, comments, interestAreas, timeAllocationTemplates,
+  budgetAccounts, budgetCategories, budgetPlanItems, budgetTransactions
 } from "@shared/schema";
 import { aiService } from "./ai-service";
 import { initializeEmailService, getEmailService } from "./imap-service";
@@ -1726,6 +1728,267 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     } catch (error) {
       console.error("[DELETE DEAL] Error:", error);
       res.sendStatus(500);
+    }
+  });
+
+  // Budget Accounts
+  app.get("/api/budget-accounts", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationIds = await getOrganizationIdsForFilter(req);
+      const accounts = await db.select().from(budgetAccounts)
+        .where(and(eq(budgetAccounts.userId, req.user!.id), inArray(budgetAccounts.organizationId, organizationIds)));
+      res.json(accounts);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid request' });
+    }
+  });
+
+  app.get("/api/budget-accounts/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    const account = await storage.getBudgetAccount(req.params.id, req.user!.id, organizationId);
+    if (!account) return res.sendStatus(404);
+    res.json(account);
+  });
+
+  app.post("/api/budget-accounts", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const accountData = insertBudgetAccountSchema.parse({ ...req.body, userId: req.user!.id, organizationId });
+      const auditContext = AuditService.createContext(req);
+      const account = await storage.createBudgetAccount({ ...accountData, organizationId }, auditContext);
+      res.status(201).json(account);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid budget account data", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.put("/api/budget-accounts/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const auditContext = AuditService.createContext(req);
+      const account = await storage.updateBudgetAccount(req.params.id, req.body, req.user!.id, organizationId, auditContext);
+      if (!account) return res.sendStatus(404);
+      res.json(account);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid budget account data" });
+    }
+  });
+
+  app.delete("/api/budget-accounts/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const auditContext = AuditService.createContext(req);
+      const deleted = await storage.deleteBudgetAccount(req.params.id, req.user!.id, organizationId, auditContext);
+      if (!deleted) return res.sendStatus(404);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("[DELETE BUDGET ACCOUNT] Error:", error);
+      res.sendStatus(500);
+    }
+  });
+
+  // Budget Categories
+  app.get("/api/budget-categories", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      let categories = await storage.getBudgetCategories(req.user!.id, organizationId);
+      if (categories.length === 0) {
+        categories = await storage.seedDefaultBudgetCategories(req.user!.id, organizationId);
+      }
+      res.json(categories);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid request' });
+    }
+  });
+
+  app.get("/api/budget-categories/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    const category = await storage.getBudgetCategory(req.params.id, req.user!.id, organizationId);
+    if (!category) return res.sendStatus(404);
+    res.json(category);
+  });
+
+  app.post("/api/budget-categories", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const categoryData = insertBudgetCategorySchema.parse({ ...req.body, userId: req.user!.id, organizationId });
+      const auditContext = AuditService.createContext(req);
+      const category = await storage.createBudgetCategory({ ...categoryData, organizationId }, auditContext);
+      res.status(201).json(category);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid budget category data", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.put("/api/budget-categories/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const auditContext = AuditService.createContext(req);
+      const category = await storage.updateBudgetCategory(req.params.id, req.body, req.user!.id, organizationId, auditContext);
+      if (!category) return res.sendStatus(404);
+      res.json(category);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid budget category data" });
+    }
+  });
+
+  app.delete("/api/budget-categories/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const auditContext = AuditService.createContext(req);
+      const deleted = await storage.deleteBudgetCategory(req.params.id, req.user!.id, organizationId, auditContext);
+      if (!deleted) return res.sendStatus(404);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("[DELETE BUDGET CATEGORY] Error:", error);
+      res.sendStatus(500);
+    }
+  });
+
+  // Budget Plan Items
+  app.get("/api/budget-plan-items", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationIds = await getOrganizationIdsForFilter(req);
+      const items = await db.select().from(budgetPlanItems)
+        .where(and(eq(budgetPlanItems.userId, req.user!.id), inArray(budgetPlanItems.organizationId, organizationIds)));
+      res.json(items);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid request' });
+    }
+  });
+
+  app.get("/api/budget-plan-items/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    const item = await storage.getBudgetPlanItem(req.params.id, req.user!.id, organizationId);
+    if (!item) return res.sendStatus(404);
+    res.json(item);
+  });
+
+  app.post("/api/budget-plan-items", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const itemData = insertBudgetPlanItemSchema.parse({ ...req.body, userId: req.user!.id, organizationId });
+      const auditContext = AuditService.createContext(req);
+      const item = await storage.createBudgetPlanItem({ ...itemData, organizationId }, auditContext);
+      res.status(201).json(item);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid budget plan item data", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.put("/api/budget-plan-items/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const auditContext = AuditService.createContext(req);
+      const item = await storage.updateBudgetPlanItem(req.params.id, req.body, req.user!.id, organizationId, auditContext);
+      if (!item) return res.sendStatus(404);
+      res.json(item);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid budget plan item data" });
+    }
+  });
+
+  app.delete("/api/budget-plan-items/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const auditContext = AuditService.createContext(req);
+      const deleted = await storage.deleteBudgetPlanItem(req.params.id, req.user!.id, organizationId, auditContext);
+      if (!deleted) return res.sendStatus(404);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("[DELETE BUDGET PLAN ITEM] Error:", error);
+      res.sendStatus(500);
+    }
+  });
+
+  // Budget Transactions
+  app.get("/api/budget-transactions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationIds = await getOrganizationIdsForFilter(req);
+      const transactions = await db.select().from(budgetTransactions)
+        .where(and(eq(budgetTransactions.userId, req.user!.id), inArray(budgetTransactions.organizationId, organizationIds)));
+      res.json(transactions);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid request' });
+    }
+  });
+
+  app.get("/api/budget-transactions/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const organizationId = getOrganizationId(req);
+    const transaction = await storage.getBudgetTransaction(req.params.id, req.user!.id, organizationId);
+    if (!transaction) return res.sendStatus(404);
+    res.json(transaction);
+  });
+
+  app.post("/api/budget-transactions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const transactionData = insertBudgetTransactionSchema.parse({ ...req.body, userId: req.user!.id, organizationId });
+      const auditContext = AuditService.createContext(req);
+      const transaction = await storage.createBudgetTransaction({ ...transactionData, organizationId }, auditContext);
+      res.status(201).json(transaction);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid budget transaction data", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.put("/api/budget-transactions/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const auditContext = AuditService.createContext(req);
+      const transaction = await storage.updateBudgetTransaction(req.params.id, req.body, req.user!.id, organizationId, auditContext);
+      if (!transaction) return res.sendStatus(404);
+      res.json(transaction);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid budget transaction data" });
+    }
+  });
+
+  app.delete("/api/budget-transactions/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const auditContext = AuditService.createContext(req);
+      const deleted = await storage.deleteBudgetTransaction(req.params.id, req.user!.id, organizationId, auditContext);
+      if (!deleted) return res.sendStatus(404);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("[DELETE BUDGET TRANSACTION] Error:", error);
+      res.sendStatus(500);
+    }
+  });
+
+  // Budget Summary (pianificato vs effettivo)
+  app.get("/api/budget/summary", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const now = new Date();
+      const year = parseInt(req.query.year as string) || now.getFullYear();
+      const month = parseInt(req.query.month as string) || (now.getMonth() + 1);
+      const summary = await storage.getBudgetSummary(organizationId, year, month);
+      res.json(summary);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid request' });
     }
   });
 

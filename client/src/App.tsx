@@ -31,6 +31,7 @@ import AccountPage from "@/pages/account-page";
 import TimePlannerPage from "@/pages/time-planner-page";
 import InterestAreasPage from "@/pages/interest-areas-page";
 import GamificationPage from "@/pages/gamification-page";
+import BudgetPage from "@/pages/budget-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -53,6 +54,7 @@ function Router() {
       <ProtectedRoute path="/time-planner" component={TimePlannerPage} />
       <ProtectedRoute path="/interest-areas" component={InterestAreasPage} />
       <ProtectedRoute path="/gamification" component={GamificationPage} />
+      <ProtectedRoute path="/budget" component={BudgetPage} />
       <ProtectedRoute path="/timesheet" component={TimesheetPage} />
       <ProtectedRoute path="/timesheets" component={TimesheetsPage} />
       <ProtectedRoute path="/messages" component={MessagesPage} />

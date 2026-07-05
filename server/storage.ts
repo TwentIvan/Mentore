@@ -4,8 +4,9 @@ import {
   vpnConnections, vpnCredentials, systemCredentials, interestAreas, timeAllocationTemplates,
   vpnSoftware, vpnSystems, discoveredVpnSoftware, discoveredVpnConfigurations, organizations, userOrganizations, organizationInvitations,
   emailVerificationTokens, organizationDomains, emailFeedbacks, customFeedbackReasons, emailTrainingSelections, proposals,
-  gamificationPointEvents, userGamificationStats, gamificationLevels, achievementDefinitions, userAchievements, 
+  gamificationPointEvents, userGamificationStats, gamificationLevels, achievementDefinitions, userAchievements,
   streaks, challengeDefinitions, challengeInstances, milestoneEvents,
+  budgetAccounts, budgetCategories, budgetPlanItems, budgetTransactions,
   type User, type InsertUser,
   type Organization, type InsertOrganization,
   type UserOrganization, type InsertUserOrganization,
@@ -51,7 +52,11 @@ import {
   type Streak, type InsertStreak,
   type ChallengeDefinition, type InsertChallengeDefinition,
   type ChallengeInstance, type InsertChallengeInstance,
-  type MilestoneEvent, type InsertMilestoneEvent
+  type MilestoneEvent, type InsertMilestoneEvent,
+  type BudgetAccount, type InsertBudgetAccount,
+  type BudgetCategory, type InsertBudgetCategory,
+  type BudgetPlanItem, type InsertBudgetPlanItem,
+  type BudgetTransaction, type InsertBudgetTransaction
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, isNotNull } from "drizzle-orm";
@@ -66,6 +71,27 @@ import { ThreadingService } from "./threading-service";
 
 const PostgresSessionStore = connectPg(session);
 const MemorySessionStore = MemoryStore(session);
+
+export interface BudgetSummary {
+  year: number;
+  month: number;
+  categories: Array<{
+    categoryId: string;
+    categoryName: string;
+    type: "income" | "expense";
+    planned: number;
+    actual: number;
+    variance: number;
+  }>;
+  totals: {
+    plannedIncome: number;
+    actualIncome: number;
+    plannedExpense: number;
+    actualExpense: number;
+    plannedSavings: number;
+    actualSavings: number;
+  };
+}
 
 export interface IStorage {
   // Organizations
@@ -135,6 +161,38 @@ export interface IStorage {
   createDeal(deal: InsertDeal & { organizationId: string }): Promise<Deal>;
   updateDeal(id: string, deal: Partial<InsertDeal>, userId: string, organizationId: string): Promise<Deal | undefined>;
   deleteDeal(id: string, userId: string, organizationId: string): Promise<boolean>;
+
+  // Budget Accounts
+  getBudgetAccounts(userId: string, organizationId: string): Promise<BudgetAccount[]>;
+  getBudgetAccount(id: string, userId: string, organizationId: string): Promise<BudgetAccount | undefined>;
+  createBudgetAccount(account: InsertBudgetAccount & { organizationId: string }): Promise<BudgetAccount>;
+  updateBudgetAccount(id: string, account: Partial<InsertBudgetAccount>, userId: string, organizationId: string): Promise<BudgetAccount | undefined>;
+  deleteBudgetAccount(id: string, userId: string, organizationId: string): Promise<boolean>;
+
+  // Budget Categories
+  getBudgetCategories(userId: string, organizationId: string): Promise<BudgetCategory[]>;
+  getBudgetCategory(id: string, userId: string, organizationId: string): Promise<BudgetCategory | undefined>;
+  createBudgetCategory(category: InsertBudgetCategory & { organizationId: string }): Promise<BudgetCategory>;
+  updateBudgetCategory(id: string, category: Partial<InsertBudgetCategory>, userId: string, organizationId: string): Promise<BudgetCategory | undefined>;
+  deleteBudgetCategory(id: string, userId: string, organizationId: string): Promise<boolean>;
+  seedDefaultBudgetCategories(userId: string, organizationId: string): Promise<BudgetCategory[]>;
+
+  // Budget Plan Items
+  getBudgetPlanItems(userId: string, organizationId: string): Promise<BudgetPlanItem[]>;
+  getBudgetPlanItem(id: string, userId: string, organizationId: string): Promise<BudgetPlanItem | undefined>;
+  createBudgetPlanItem(item: InsertBudgetPlanItem & { organizationId: string }): Promise<BudgetPlanItem>;
+  updateBudgetPlanItem(id: string, item: Partial<InsertBudgetPlanItem>, userId: string, organizationId: string): Promise<BudgetPlanItem | undefined>;
+  deleteBudgetPlanItem(id: string, userId: string, organizationId: string): Promise<boolean>;
+
+  // Budget Transactions
+  getBudgetTransactions(userId: string, organizationId: string): Promise<BudgetTransaction[]>;
+  getBudgetTransaction(id: string, userId: string, organizationId: string): Promise<BudgetTransaction | undefined>;
+  createBudgetTransaction(transaction: InsertBudgetTransaction & { organizationId: string }): Promise<BudgetTransaction>;
+  updateBudgetTransaction(id: string, transaction: Partial<InsertBudgetTransaction>, userId: string, organizationId: string): Promise<BudgetTransaction | undefined>;
+  deleteBudgetTransaction(id: string, userId: string, organizationId: string): Promise<boolean>;
+
+  // Budget Summary (pianificato vs effettivo)
+  getBudgetSummary(organizationId: string, year: number, month: number): Promise<BudgetSummary>;
 
   // Calendar Events
   getCalendarEvents(userId: string): Promise<CalendarEvent[]>;
@@ -1440,6 +1498,323 @@ export class DatabaseStorage implements IStorage {
     }
     
     return (result.rowCount || 0) > 0;
+  }
+
+  // Budget Accounts
+  async getBudgetAccounts(userId: string, organizationId: string): Promise<BudgetAccount[]> {
+    return await db.select().from(budgetAccounts)
+      .where(and(eq(budgetAccounts.userId, userId), eq(budgetAccounts.organizationId, organizationId)))
+      .orderBy(desc(budgetAccounts.updatedAt));
+  }
+
+  async getBudgetAccount(id: string, userId: string, organizationId: string): Promise<BudgetAccount | undefined> {
+    const [account] = await db.select().from(budgetAccounts)
+      .where(and(eq(budgetAccounts.id, id), eq(budgetAccounts.userId, userId), eq(budgetAccounts.organizationId, organizationId)));
+    return account || undefined;
+  }
+
+  async createBudgetAccount(account: InsertBudgetAccount & { organizationId: string }, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<BudgetAccount> {
+    const [newAccount] = await db.insert(budgetAccounts).values(account).returning();
+    if (auditContext) {
+      await AuditService.logCreate('budget_accounts', newAccount.id, newAccount, {
+        userId: auditContext.userId,
+        organizationId: account.organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return newAccount;
+  }
+
+  async updateBudgetAccount(id: string, account: Partial<InsertBudgetAccount>, userId: string, organizationId: string, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<BudgetAccount | undefined> {
+    const oldAccount = auditContext ? await this.getBudgetAccount(id, userId, organizationId) : null;
+    const [updatedAccount] = await db.update(budgetAccounts)
+      .set({ ...account, updatedAt: new Date() })
+      .where(and(eq(budgetAccounts.id, id), eq(budgetAccounts.userId, userId), eq(budgetAccounts.organizationId, organizationId)))
+      .returning();
+    if (auditContext && updatedAccount && oldAccount) {
+      await AuditService.logUpdate('budget_accounts', updatedAccount.id, oldAccount, updatedAccount, {
+        userId: auditContext.userId,
+        organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return updatedAccount || undefined;
+  }
+
+  async deleteBudgetAccount(id: string, userId: string, organizationId: string, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<boolean> {
+    const oldAccount = auditContext ? await this.getBudgetAccount(id, userId, organizationId) : null;
+    const result = await db.delete(budgetAccounts)
+      .where(and(eq(budgetAccounts.id, id), eq(budgetAccounts.userId, userId), eq(budgetAccounts.organizationId, organizationId)));
+    if (auditContext && oldAccount && (result.rowCount || 0) > 0) {
+      await AuditService.logDelete('budget_accounts', oldAccount.id, oldAccount, {
+        userId: auditContext.userId,
+        organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Budget Categories
+  async getBudgetCategories(userId: string, organizationId: string): Promise<BudgetCategory[]> {
+    return await db.select().from(budgetCategories)
+      .where(and(eq(budgetCategories.userId, userId), eq(budgetCategories.organizationId, organizationId)))
+      .orderBy(desc(budgetCategories.updatedAt));
+  }
+
+  async getBudgetCategory(id: string, userId: string, organizationId: string): Promise<BudgetCategory | undefined> {
+    const [category] = await db.select().from(budgetCategories)
+      .where(and(eq(budgetCategories.id, id), eq(budgetCategories.userId, userId), eq(budgetCategories.organizationId, organizationId)));
+    return category || undefined;
+  }
+
+  async createBudgetCategory(category: InsertBudgetCategory & { organizationId: string }, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<BudgetCategory> {
+    const [newCategory] = await db.insert(budgetCategories).values(category).returning();
+    if (auditContext) {
+      await AuditService.logCreate('budget_categories', newCategory.id, newCategory, {
+        userId: auditContext.userId,
+        organizationId: category.organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return newCategory;
+  }
+
+  async updateBudgetCategory(id: string, category: Partial<InsertBudgetCategory>, userId: string, organizationId: string, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<BudgetCategory | undefined> {
+    const oldCategory = auditContext ? await this.getBudgetCategory(id, userId, organizationId) : null;
+    const [updatedCategory] = await db.update(budgetCategories)
+      .set({ ...category, updatedAt: new Date() })
+      .where(and(eq(budgetCategories.id, id), eq(budgetCategories.userId, userId), eq(budgetCategories.organizationId, organizationId)))
+      .returning();
+    if (auditContext && updatedCategory && oldCategory) {
+      await AuditService.logUpdate('budget_categories', updatedCategory.id, oldCategory, updatedCategory, {
+        userId: auditContext.userId,
+        organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return updatedCategory || undefined;
+  }
+
+  async deleteBudgetCategory(id: string, userId: string, organizationId: string, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<boolean> {
+    const oldCategory = auditContext ? await this.getBudgetCategory(id, userId, organizationId) : null;
+    const result = await db.delete(budgetCategories)
+      .where(and(eq(budgetCategories.id, id), eq(budgetCategories.userId, userId), eq(budgetCategories.organizationId, organizationId)));
+    if (auditContext && oldCategory && (result.rowCount || 0) > 0) {
+      await AuditService.logDelete('budget_categories', oldCategory.id, oldCategory, {
+        userId: auditContext.userId,
+        organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return (result.rowCount || 0) > 0;
+  }
+
+  async seedDefaultBudgetCategories(userId: string, organizationId: string): Promise<BudgetCategory[]> {
+    const defaults: Array<{ name: string; type: "income" | "expense" }> = [
+      { name: "Stipendio", type: "income" },
+      { name: "Altre Entrate", type: "income" },
+      { name: "Casa", type: "expense" },
+      { name: "Utenze", type: "expense" },
+      { name: "Alimentari", type: "expense" },
+      { name: "Trasporti", type: "expense" },
+      { name: "Salute", type: "expense" },
+      { name: "Animali", type: "expense" },
+      { name: "Abbonamenti", type: "expense" },
+      { name: "Svago", type: "expense" },
+      { name: "Risparmio", type: "expense" },
+      { name: "Altro", type: "expense" },
+    ];
+    const inserted = await db.insert(budgetCategories)
+      .values(defaults.map(d => ({ ...d, userId, organizationId })))
+      .returning();
+    return inserted;
+  }
+
+  // Budget Plan Items
+  async getBudgetPlanItems(userId: string, organizationId: string): Promise<BudgetPlanItem[]> {
+    return await db.select().from(budgetPlanItems)
+      .where(and(eq(budgetPlanItems.userId, userId), eq(budgetPlanItems.organizationId, organizationId)))
+      .orderBy(desc(budgetPlanItems.updatedAt));
+  }
+
+  async getBudgetPlanItem(id: string, userId: string, organizationId: string): Promise<BudgetPlanItem | undefined> {
+    const [item] = await db.select().from(budgetPlanItems)
+      .where(and(eq(budgetPlanItems.id, id), eq(budgetPlanItems.userId, userId), eq(budgetPlanItems.organizationId, organizationId)));
+    return item || undefined;
+  }
+
+  async createBudgetPlanItem(item: InsertBudgetPlanItem & { organizationId: string }, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<BudgetPlanItem> {
+    const values: typeof budgetPlanItems.$inferInsert = { ...item, endDate: item.endDate ? new Date(item.endDate) : null };
+    const [newItem] = await db.insert(budgetPlanItems).values(values).returning();
+    if (auditContext) {
+      await AuditService.logCreate('budget_plan_items', newItem.id, newItem, {
+        userId: auditContext.userId,
+        organizationId: item.organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return newItem;
+  }
+
+  async updateBudgetPlanItem(id: string, item: Partial<InsertBudgetPlanItem>, userId: string, organizationId: string, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<BudgetPlanItem | undefined> {
+    const oldItem = auditContext ? await this.getBudgetPlanItem(id, userId, organizationId) : null;
+    const { endDate, ...rest } = item;
+    const updateValues: Partial<typeof budgetPlanItems.$inferInsert> = { ...rest, updatedAt: new Date() };
+    if (endDate !== undefined) {
+      updateValues.endDate = endDate ? new Date(endDate) : null;
+    }
+    const [updatedItem] = await db.update(budgetPlanItems)
+      .set(updateValues)
+      .where(and(eq(budgetPlanItems.id, id), eq(budgetPlanItems.userId, userId), eq(budgetPlanItems.organizationId, organizationId)))
+      .returning();
+    if (auditContext && updatedItem && oldItem) {
+      await AuditService.logUpdate('budget_plan_items', updatedItem.id, oldItem, updatedItem, {
+        userId: auditContext.userId,
+        organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return updatedItem || undefined;
+  }
+
+  async deleteBudgetPlanItem(id: string, userId: string, organizationId: string, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<boolean> {
+    const oldItem = auditContext ? await this.getBudgetPlanItem(id, userId, organizationId) : null;
+    const result = await db.delete(budgetPlanItems)
+      .where(and(eq(budgetPlanItems.id, id), eq(budgetPlanItems.userId, userId), eq(budgetPlanItems.organizationId, organizationId)));
+    if (auditContext && oldItem && (result.rowCount || 0) > 0) {
+      await AuditService.logDelete('budget_plan_items', oldItem.id, oldItem, {
+        userId: auditContext.userId,
+        organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Budget Transactions
+  async getBudgetTransactions(userId: string, organizationId: string): Promise<BudgetTransaction[]> {
+    return await db.select().from(budgetTransactions)
+      .where(and(eq(budgetTransactions.userId, userId), eq(budgetTransactions.organizationId, organizationId)))
+      .orderBy(desc(budgetTransactions.transactionDate));
+  }
+
+  async getBudgetTransaction(id: string, userId: string, organizationId: string): Promise<BudgetTransaction | undefined> {
+    const [transaction] = await db.select().from(budgetTransactions)
+      .where(and(eq(budgetTransactions.id, id), eq(budgetTransactions.userId, userId), eq(budgetTransactions.organizationId, organizationId)));
+    return transaction || undefined;
+  }
+
+  async createBudgetTransaction(transaction: InsertBudgetTransaction & { organizationId: string }, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<BudgetTransaction> {
+    const values: typeof budgetTransactions.$inferInsert = { ...transaction, transactionDate: new Date(transaction.transactionDate) };
+    const [newTransaction] = await db.insert(budgetTransactions).values(values).returning();
+    if (auditContext) {
+      await AuditService.logCreate('budget_transactions', newTransaction.id, newTransaction, {
+        userId: auditContext.userId,
+        organizationId: transaction.organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return newTransaction;
+  }
+
+  async updateBudgetTransaction(id: string, transaction: Partial<InsertBudgetTransaction>, userId: string, organizationId: string, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<BudgetTransaction | undefined> {
+    const oldTransaction = auditContext ? await this.getBudgetTransaction(id, userId, organizationId) : null;
+    const { transactionDate, ...rest } = transaction;
+    const updateValues: Partial<typeof budgetTransactions.$inferInsert> = { ...rest, updatedAt: new Date() };
+    if (transactionDate !== undefined) {
+      updateValues.transactionDate = new Date(transactionDate);
+    }
+    const [updatedTransaction] = await db.update(budgetTransactions)
+      .set(updateValues)
+      .where(and(eq(budgetTransactions.id, id), eq(budgetTransactions.userId, userId), eq(budgetTransactions.organizationId, organizationId)))
+      .returning();
+    if (auditContext && updatedTransaction && oldTransaction) {
+      await AuditService.logUpdate('budget_transactions', updatedTransaction.id, oldTransaction, updatedTransaction, {
+        userId: auditContext.userId,
+        organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return updatedTransaction || undefined;
+  }
+
+  async deleteBudgetTransaction(id: string, userId: string, organizationId: string, auditContext?: { userId: string; userAgent?: string; ipAddress?: string }): Promise<boolean> {
+    const oldTransaction = auditContext ? await this.getBudgetTransaction(id, userId, organizationId) : null;
+    const result = await db.delete(budgetTransactions)
+      .where(and(eq(budgetTransactions.id, id), eq(budgetTransactions.userId, userId), eq(budgetTransactions.organizationId, organizationId)));
+    if (auditContext && oldTransaction && (result.rowCount || 0) > 0) {
+      await AuditService.logDelete('budget_transactions', oldTransaction.id, oldTransaction, {
+        userId: auditContext.userId,
+        organizationId,
+        userAgent: auditContext.userAgent,
+        ipAddress: auditContext.ipAddress,
+      });
+    }
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Budget Summary (pianificato vs effettivo, per mese/anno)
+  async getBudgetSummary(organizationId: string, year: number, month: number): Promise<BudgetSummary> {
+    const [categories, planItems, transactions] = await Promise.all([
+      db.select().from(budgetCategories).where(eq(budgetCategories.organizationId, organizationId)),
+      db.select().from(budgetPlanItems).where(and(eq(budgetPlanItems.organizationId, organizationId), eq(budgetPlanItems.isActive, true))),
+      db.select().from(budgetTransactions).where(eq(budgetTransactions.organizationId, organizationId)),
+    ]);
+
+    const targetKey = year * 12 + month;
+    const monthStart = new Date(year, month - 1, 1);
+
+    const plannedByCategory = new Map<string, number>();
+    for (const item of planItems) {
+      if (item.endDate && new Date(item.endDate) < monthStart) continue;
+      const startKey = item.startYear * 12 + item.startMonth;
+      const occurs = item.intervalMonths == null
+        ? startKey === targetKey
+        : targetKey >= startKey && (targetKey - startKey) % item.intervalMonths === 0;
+      if (!occurs) continue;
+      plannedByCategory.set(item.categoryId, (plannedByCategory.get(item.categoryId) || 0) + Number(item.amount));
+    }
+
+    const actualByCategory = new Map<string, number>();
+    for (const tx of transactions) {
+      const d = new Date(tx.transactionDate);
+      if (d.getFullYear() !== year || d.getMonth() + 1 !== month) continue;
+      if (!tx.categoryId) continue;
+      actualByCategory.set(tx.categoryId, (actualByCategory.get(tx.categoryId) || 0) + Number(tx.amount));
+    }
+
+    const categoryRows = categories.map(cat => {
+      const planned = plannedByCategory.get(cat.id) || 0;
+      const actual = actualByCategory.get(cat.id) || 0;
+      return { categoryId: cat.id, categoryName: cat.name, type: cat.type, planned, actual, variance: actual - planned };
+    });
+
+    const totals = categoryRows.reduce((acc, row) => {
+      if (row.type === "income") {
+        acc.plannedIncome += row.planned;
+        acc.actualIncome += row.actual;
+      } else {
+        acc.plannedExpense += row.planned;
+        acc.actualExpense += row.actual;
+      }
+      return acc;
+    }, { plannedIncome: 0, actualIncome: 0, plannedExpense: 0, actualExpense: 0, plannedSavings: 0, actualSavings: 0 });
+    totals.plannedSavings = totals.plannedIncome - totals.plannedExpense;
+    totals.actualSavings = totals.actualIncome - totals.actualExpense;
+
+    return { year, month, categories: categoryRows, totals };
   }
 
   // Calendar Events
