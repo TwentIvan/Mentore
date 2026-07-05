@@ -1864,3 +1864,34 @@ export type InsertBudgetPlanItem = z.infer<typeof insertBudgetPlanItemSchema>;
 export type BudgetTransaction = typeof budgetTransactions.$inferSelect;
 export type InsertBudgetTransaction = z.infer<typeof insertBudgetTransactionSchema>;
 
+// Proposte AI per struttura di budget (categorie + voci pianificate)
+export const budgetProposals = pgTable("budget_proposals", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id).notNull(),
+  status: proposalStatusEnum("status").default("pending").notNull(),
+  userNote: text("user_note"), // Nota facoltativa dell'utente su obiettivi/contesto
+  proposalData: jsonb("proposal_data").notNull(), // { categories, planItems, reasoning }
+  errorMessage: text("error_message"),
+  appliedAt: timestamp("applied_at"),
+  appliedBy: uuid("applied_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const budgetProposalsRelations = relations(budgetProposals, ({ one }) => ({
+  user: one(users, { fields: [budgetProposals.userId], references: [users.id] }),
+  organization: one(organizations, { fields: [budgetProposals.organizationId], references: [organizations.id] }),
+  appliedByUser: one(users, { fields: [budgetProposals.appliedBy], references: [users.id] }),
+}));
+
+export const insertBudgetProposalSchema = createInsertSchema(budgetProposals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  organizationId: true,
+});
+
+export type BudgetProposal = typeof budgetProposals.$inferSelect;
+export type InsertBudgetProposal = z.infer<typeof insertBudgetProposalSchema>;
+

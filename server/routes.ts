@@ -1997,6 +1997,207 @@ Validato il: ${vpnConnection.scriptValidatedAt ? new Date(vpnConnection.scriptVa
     }
   });
 
+  // Budget Proposals - AI Agent per la proposta di struttura di budget (categorie + voci pianificate)
+  app.get("/api/budget-proposals", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const proposals = await storage.getBudgetProposals(req.user!.id, organizationId);
+      res.json(proposals);
+    } catch (error) {
+      console.error("Get budget proposals error:", error);
+      res.status(500).json({ error: "Failed to get budget proposals" });
+    }
+  });
+
+  app.get("/api/budget-proposals/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const proposal = await storage.getBudgetProposal(req.params.id, req.user!.id, organizationId);
+      if (!proposal) return res.sendStatus(404);
+      res.json(proposal);
+    } catch (error) {
+      console.error("Get budget proposal error:", error);
+      res.status(500).json({ error: "Failed to get budget proposal" });
+    }
+  });
+
+  app.post("/api/budget-proposals/generate", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const userId = req.user!.id;
+      const userNote: string | undefined = typeof req.body?.note === "string" ? req.body.note.slice(0, 2000) : undefined;
+
+      // Evita di avviare analisi multiple in parallelo per lo stesso utente/organizzazione
+      const existingProposals = await storage.getBudgetProposals(userId, organizationId);
+      const pendingProposal = existingProposals.find(p => p.status === 'pending' && (p.proposalData as any)?.processing);
+      if (pendingProposal) {
+        return res.json({
+          success: true,
+          message: "Analisi già in corso",
+          proposalId: pendingProposal.id
+        });
+      }
+
+      const proposal = await storage.createBudgetProposal({
+        userId,
+        organizationId,
+        status: 'pending',
+        userNote: userNote || null,
+        proposalData: { processing: true },
+      });
+
+      // Avvia l'analisi AI in background (non attendere)
+      (async () => {
+        try {
+          const existingCategories = await storage.getBudgetCategories(userId, organizationId);
+          const existingPlanItems = await storage.getBudgetPlanItems(userId, organizationId);
+          const recentTransactions = await storage.getBudgetTransactions(userId, organizationId);
+
+          const { analyzeBudgetStructure } = await import('./ai-budget-agent');
+          const analysisResult = await analyzeBudgetStructure(
+            existingCategories,
+            existingPlanItems,
+            recentTransactions,
+            userNote
+          );
+
+          await storage.updateBudgetProposal(proposal.id, {
+            proposalData: analysisResult,
+            status: 'pending'
+          }, userId, organizationId);
+
+          console.log(`[AI-BUDGET] Proposal ${proposal.id} analysis completed`);
+        } catch (error) {
+          console.error(`[AI-BUDGET] Error analyzing budget structure for proposal ${proposal.id}:`, error);
+          await storage.updateBudgetProposal(proposal.id, {
+            status: 'pending',
+            errorMessage: error instanceof Error ? error.message : String(error)
+          }, userId, organizationId);
+        }
+      })();
+
+      res.json({
+        success: true,
+        message: "Analisi avviata in background",
+        proposalId: proposal.id
+      });
+    } catch (error) {
+      console.error("Budget structure analysis error:", error);
+      res.status(500).json({ error: "Failed to start analysis", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/budget-proposals/:id/apply", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const userId = req.user!.id;
+      const auditContext = AuditService.createContext(req);
+
+      const proposal = await storage.getBudgetProposal(req.params.id, userId, organizationId);
+      if (!proposal) return res.sendStatus(404);
+
+      if (proposal.status !== 'pending') {
+        return res.status(400).json({ error: "Proposal already processed" });
+      }
+
+      const proposalData = proposal.proposalData as any;
+      if (!proposalData || proposalData.processing) {
+        return res.status(400).json({ error: "Proposal analysis not yet complete" });
+      }
+
+      const results: any = { categories: [], planItems: [] };
+      const categoryIdByName = new Map<string, string>();
+
+      // 1. Crea o abbina le categorie proposte
+      if (Array.isArray(proposalData.categories)) {
+        for (const categoryProposal of proposalData.categories) {
+          let category;
+          if (categoryProposal.isNew) {
+            category = await storage.createBudgetCategory({
+              name: categoryProposal.name,
+              type: categoryProposal.type,
+              userId,
+              organizationId
+            }, auditContext);
+          } else if (categoryProposal.existingId) {
+            category = await storage.getBudgetCategory(categoryProposal.existingId, userId, organizationId);
+          }
+          if (category) {
+            results.categories.push(category);
+            categoryIdByName.set(categoryProposal.name.trim().toLowerCase(), category.id);
+          }
+        }
+      }
+
+      // 2. Crea le voci di piano proposte, risolvendo la categoria per nome
+      if (Array.isArray(proposalData.planItems)) {
+        for (const planItemProposal of proposalData.planItems) {
+          const categoryId = categoryIdByName.get((planItemProposal.categoryName || "").trim().toLowerCase());
+          if (!categoryId) continue; // Categoria non risolta, salta la voce
+
+          const planItem = await storage.createBudgetPlanItem({
+            name: planItemProposal.name,
+            type: planItemProposal.type,
+            categoryId,
+            amount: String(planItemProposal.amount),
+            startYear: planItemProposal.startYear,
+            startMonth: planItemProposal.startMonth,
+            intervalMonths: planItemProposal.intervalMonths ?? null,
+            notes: planItemProposal.notes || null,
+            userId,
+            organizationId
+          }, auditContext);
+          results.planItems.push(planItem);
+        }
+      }
+
+      await storage.updateBudgetProposal(req.params.id, {
+        status: 'accepted',
+        appliedAt: new Date(),
+        appliedBy: userId
+      }, userId, organizationId);
+
+      res.json({ success: true, results });
+    } catch (error) {
+      console.error("Apply budget proposal error:", error);
+      res.status(500).json({ error: "Failed to apply budget proposal", details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/budget-proposals/:id/reject", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const userId = req.user!.id;
+
+      const proposal = await storage.getBudgetProposal(req.params.id, userId, organizationId);
+      if (!proposal) return res.sendStatus(404);
+
+      await storage.updateBudgetProposal(req.params.id, { status: 'rejected' }, userId, organizationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Reject budget proposal error:", error);
+      res.status(500).json({ error: "Failed to reject budget proposal" });
+    }
+  });
+
+  app.delete("/api/budget-proposals/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    try {
+      const organizationId = getOrganizationId(req);
+      const deleted = await storage.deleteBudgetProposal(req.params.id, req.user!.id, organizationId);
+      if (!deleted) return res.sendStatus(404);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Delete budget proposal error:", error);
+      res.status(500).json({ error: "Failed to delete budget proposal" });
+    }
+  });
+
   // Calendar Events
   app.get("/api/calendar-events", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
