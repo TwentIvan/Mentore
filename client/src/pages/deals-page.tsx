@@ -470,7 +470,6 @@ export default function DealsPage() {
                 </div>
               )}
             </div>
-          )}
         </div>
       </main>
       {/* Table Configuration Dialog */}
