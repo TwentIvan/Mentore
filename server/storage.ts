@@ -6,7 +6,7 @@ import {
   emailVerificationTokens, organizationDomains, emailFeedbacks, customFeedbackReasons, emailTrainingSelections, proposals,
   gamificationPointEvents, userGamificationStats, gamificationLevels, achievementDefinitions, userAchievements,
   streaks, challengeDefinitions, challengeInstances, milestoneEvents,
-  budgetAccounts, budgetCategories, budgetPlanItems, budgetTransactions,
+  budgetAccounts, budgetCategories, budgetPlanItems, budgetTransactions, budgetProposals,
   type User, type InsertUser,
   type Organization, type InsertOrganization,
   type UserOrganization, type InsertUserOrganization,
@@ -56,7 +56,8 @@ import {
   type BudgetAccount, type InsertBudgetAccount,
   type BudgetCategory, type InsertBudgetCategory,
   type BudgetPlanItem, type InsertBudgetPlanItem,
-  type BudgetTransaction, type InsertBudgetTransaction
+  type BudgetTransaction, type InsertBudgetTransaction,
+  type BudgetProposal, type InsertBudgetProposal
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, isNotNull, inArray } from "drizzle-orm";
@@ -269,6 +270,13 @@ export interface IStorage {
   createProposal(proposal: InsertProposal): Promise<Proposal>;
   updateProposal(id: string, proposal: Partial<InsertProposal>, userId: string, organizationId: string): Promise<Proposal | undefined>;
   deleteProposal(id: string, userId: string, organizationId: string): Promise<boolean>;
+
+  // Budget Proposals
+  getBudgetProposals(userId: string, organizationId: string): Promise<BudgetProposal[]>;
+  getBudgetProposal(id: string, userId: string, organizationId: string): Promise<BudgetProposal | undefined>;
+  createBudgetProposal(proposal: InsertBudgetProposal & { organizationId: string }): Promise<BudgetProposal>;
+  updateBudgetProposal(id: string, proposal: Partial<InsertBudgetProposal>, userId: string, organizationId: string): Promise<BudgetProposal | undefined>;
+  deleteBudgetProposal(id: string, userId: string, organizationId: string): Promise<boolean>;
 
   // Email Feedbacks
   createEmailFeedback(feedback: InsertEmailFeedback): Promise<EmailFeedback>;
@@ -2525,6 +2533,62 @@ export class DatabaseStorage implements IStorage {
         eq(proposals.id, id),
         eq(proposals.userId, userId),
         eq(proposals.organizationId, organizationId)
+      ));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Budget Proposals
+  async getBudgetProposals(userId: string, organizationId: string): Promise<BudgetProposal[]> {
+    return await db
+      .select()
+      .from(budgetProposals)
+      .where(and(
+        eq(budgetProposals.userId, userId),
+        eq(budgetProposals.organizationId, organizationId)
+      ))
+      .orderBy(desc(budgetProposals.createdAt));
+  }
+
+  async getBudgetProposal(id: string, userId: string, organizationId: string): Promise<BudgetProposal | undefined> {
+    const [proposal] = await db
+      .select()
+      .from(budgetProposals)
+      .where(and(
+        eq(budgetProposals.id, id),
+        eq(budgetProposals.userId, userId),
+        eq(budgetProposals.organizationId, organizationId)
+      ));
+    return proposal || undefined;
+  }
+
+  async createBudgetProposal(proposal: InsertBudgetProposal & { organizationId: string }): Promise<BudgetProposal> {
+    const [newProposal] = await db
+      .insert(budgetProposals)
+      .values(proposal)
+      .returning();
+    return newProposal;
+  }
+
+  async updateBudgetProposal(id: string, proposalUpdate: Partial<InsertBudgetProposal>, userId: string, organizationId: string): Promise<BudgetProposal | undefined> {
+    const [updated] = await db
+      .update(budgetProposals)
+      .set({ ...proposalUpdate, updatedAt: new Date() })
+      .where(and(
+        eq(budgetProposals.id, id),
+        eq(budgetProposals.userId, userId),
+        eq(budgetProposals.organizationId, organizationId)
+      ))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteBudgetProposal(id: string, userId: string, organizationId: string): Promise<boolean> {
+    const result = await db
+      .delete(budgetProposals)
+      .where(and(
+        eq(budgetProposals.id, id),
+        eq(budgetProposals.userId, userId),
+        eq(budgetProposals.organizationId, organizationId)
       ));
     return result.rowCount ? result.rowCount > 0 : false;
   }

@@ -6,6 +6,7 @@ import BudgetAccountsTab from "@/components/budget/budget-accounts-tab";
 import BudgetCategoriesTab from "@/components/budget/budget-categories-tab";
 import BudgetPlanItemsTab from "@/components/budget/budget-plan-items-tab";
 import BudgetTransactionsTab from "@/components/budget/budget-transactions-tab";
+import BudgetProposalsTab from "@/components/budget/budget-proposals-tab";
 
 export default function BudgetPage() {
   return (
@@ -16,12 +17,13 @@ export default function BudgetPage() {
 
         <div className="p-6 space-y-6">
           <Tabs defaultValue="summary" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="summary" data-testid="tab-budget-summary">Riepilogo</TabsTrigger>
               <TabsTrigger value="accounts" data-testid="tab-budget-accounts">Conti</TabsTrigger>
               <TabsTrigger value="categories" data-testid="tab-budget-categories">Categorie</TabsTrigger>
               <TabsTrigger value="plan-items" data-testid="tab-budget-plan-items">Voci Pianificate</TabsTrigger>
               <TabsTrigger value="transactions" data-testid="tab-budget-transactions">Movimenti</TabsTrigger>
+              <TabsTrigger value="proposals" data-testid="tab-budget-proposals">Proposte AI</TabsTrigger>
             </TabsList>
 
             <TabsContent value="summary" className="mt-6">
@@ -38,6 +40,9 @@ export default function BudgetPage() {
             </TabsContent>
             <TabsContent value="transactions" className="mt-6">
               <BudgetTransactionsTab />
+            </TabsContent>
+            <TabsContent value="proposals" className="mt-6">
+              <BudgetProposalsTab />
             </TabsContent>
           </Tabs>
         </div>

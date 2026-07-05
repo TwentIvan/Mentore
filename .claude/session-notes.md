@@ -1,26 +1,30 @@
 # Session notes — 2026-07-05
 
 ## Task in corso
-Setup del "Claude Code optimization kit" (CLAUDE.md, PROCEDURA.md, .claude/) e pulizia della root del repo Mentore secondo PROCEDURA.md § Installazione.
+Fase 2 del modulo budget: integrazione di un agente AI che propone una struttura di budget (categorie + voci pianificate) analizzando lo storico transazioni + una nota facoltativa dell'utente.
 
 ## Stato
-- COMPLETATO: kit committato (CLAUDE.md, PROCEDURA.md, .claude/commands/{handoff,riprendi}.md, .claude/settings.json).
-- COMPLETATO: pulizia repo — cookie files rimossi dal versionamento; 17 *.png e 18 script VPN/FortiClient spostati in `archive/`; `.gitignore` aggiornato con `cookie*`, `/*.png`, `stored_attachments/`.
-- COMPLETATO: grep di verifica in server/ e client/ sui nomi degli script spostati — nessun riferimento applicativo trovato (solo self-reference dentro archive/ e log storici in attached_assets/).
-- Entrambi i commit pushati su `claude/claude-kit-setup-odp2es` (in ordine invertito rispetto alla procedura: cleanup prima, kit dopo — nessun impatto pratico).
-- INCOMPLETO/NOTO: `npm run check` fallisce con un errore **pre-esistente e non correlato**: `client/src/pages/deals-page.tsx:473` — `error TS1381: Unexpected token` (JSX/parentesi sbilanciate). Non toccato in questa sessione.
+- COMPLETATO e committato/pushato su `claude/budget-structure-agent-ewyaom` (ultimo commit `2b44196`, nessuna modifica pendente in working tree).
+- PR aperta verso `main`: https://github.com/TwentIvan/Mentore/pull/1 (non ancora revisionata/mergiata dall'utente). Nessuna CI configurata nel repo, quindi nessun check automatico da monitorare.
+- `npm run check`: stessi errori pre-esistenti di prima (baseline 77 → dopo le modifiche 76, nessun errore nuovo introdotto dal codice aggiunto; verificato con `git stash` diff).
+- INCOMPLETO: `npm run db:push` **non eseguito** — questo ambiente non ha `DATABASE_URL`/`OPENAI_API_KEY` configurati, quindi la tabella `budget_proposals` esiste solo nello schema Drizzle, non nel DB reale. Va applicata in un ambiente con DB prima di testare a mano.
+- Non testato a mano in browser (nessun DB/OpenAI key disponibili in questo ambiente).
 
 ## File toccati
-- `CLAUDE.md`, `PROCEDURA.md` — nuovi, dal kit fornito dall'utente.
-- `.claude/settings.json`, `.claude/commands/handoff.md`, `.claude/commands/riprendi.md` — nuovi, dal kit.
-- `.gitignore` — aggiunte righe `cookie*`, `/*.png`, `stored_attachments/`.
-- 17 file `*.png` e 18 script `.sh` (extract_*, test_*, forticlient*, find_real_forticlient_configs.sh) — spostati in `archive/` via `git mv`.
-- `cookie-jar.txt`, `cookie.jar`, `cookies.txt` — rimossi dal versionamento (restano su disco, ora ignorati).
+- `shared/schema.ts` — nuova tabella `budget_proposals` (status, userNote, proposalData jsonb, ecc.) + relations + insert schema + tipi.
+- `server/ai-budget-agent.ts` — nuovo, `analyzeBudgetStructure()`: prompt OpenAI (gpt-5) che riceve categorie/plan items esistenti + transazioni storiche + nota utente, ritorna `{ categories, planItems, reasoning }`.
+- `server/storage.ts` — CRUD `getBudgetProposals/getBudgetProposal/createBudgetProposal/updateBudgetProposal/deleteBudgetProposal` (stesso pattern di `proposals`).
+- `server/routes.ts` — endpoint `/api/budget-proposals` (GET lista/singola), `POST /generate` (avvia analisi in background, come per l'agente messaggi), `POST /:id/apply` (crea categorie nuove/abbina esistenti, poi crea plan items risolvendo `categoryName` → id via mappa nome→id), `POST /:id/reject`, `DELETE /:id`.
+- `client/src/components/budget/budget-proposals-tab.tsx` — nuovo, UI proposte (lista + dettaglio + dialog generazione con nota + apply/reject), ricalcata su `proposals-page.tsx`.
+- `client/src/pages/budget-page.tsx` — aggiunto tab "Proposte AI" (6° tab).
 
 ## Decisioni prese
-- Il comando custom `/handoff` non è invocabile a metà sessione perché la lista skill/comandi è risolta all'avvio della sessione; queste note sono state scritte seguendo manualmente le istruzioni di `.claude/commands/handoff.md`. Da una sessione futura (che parte con `.claude/commands/` già presente) `/handoff` e `/riprendi` funzioneranno come slash command normali.
+- Tabella dedicata `budget_proposals` invece di riusare `proposals` generica: quella esistente ha `messageId` NOT NULL (legata al flusso email), incompatibile con proposte non originate da un messaggio.
+- Le voci di piano proposte referenziano la categoria per **nome** (`categoryName`), non per id, perché le categorie nuove non hanno ancora un id quando l'AI genera la proposta; l'apply risolve nome→id (case-insensitive) dopo aver creato/abbinato le categorie.
+- Niente nuova voce in sidebar: la feature è un tab dentro la pagina Budget esistente, non una nuova area di primo livello.
 
 ## Prossimi passi
-1. Decidere se correggere l'errore TS1381 pre-esistente in `client/src/pages/deals-page.tsx:473` (bug indipendente da questo task).
-2. Verificare in una nuova sessione che `/riprendi` e `/handoff` funzionino come comandi slash nativi.
-3. Se lo si desidera, aprire una PR dal branch `claude/claude-kit-setup-odp2es` verso main (non ancora richiesto esplicitamente).
+1. Revisionare/mergiare la PR #1 (https://github.com/TwentIvan/Mentore/pull/1), oppure segnalare modifiche richieste.
+2. In un ambiente con `DATABASE_URL` configurato: eseguire `npm run db:push` per creare la tabella `budget_proposals`.
+3. Con `OPENAI_API_KEY` configurata: testare a mano il flusso — generare proposta (con e senza nota, con e senza storico transazioni), verificare apply (creazione categorie/plan items) e reject.
+4. Valutare se aggiungere audit trail (`AuditHistory`) anche sulle `budget_proposals` stesse, o se basta quello già presente su categorie/plan items create dall'apply.
